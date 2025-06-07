@@ -333,6 +333,9 @@ elm_main(int argc, char **argv)
     evas_object_show(ad->layout);
     evas_object_show(ad->win);
 
+    // Make window ignore focus
+    elm_win_prop_focus_skip_set(ad->win, EINA_TRUE);
+
     // Lower the window to bottom if in gadget mode
     // TODO: move it to layers instead, in the same layer as conky
     if (!ad->normal_window) {
