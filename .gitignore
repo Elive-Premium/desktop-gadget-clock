@@ -93,14 +93,16 @@ module.desktop
 *.jar
 *.rar
 *.tar
+#*.zip
 
-# Logs and databases
+# Logs and databases #
+######################
 *.log
 *.sql
 *.sqlite
 
-# OS generated files
-.DS_Store
+# OS generated files #
+######################
 .DS_Store?
 .Spotlight-V100
 .Trashes
@@ -110,14 +112,14 @@ Thumbs.db
 [Dd]esktop.ini
 ehthumbs.db
 
-# Temporary files
+# Temporary
 *~
 *.bak
 *.tmp
 *.temp
 tmp/
 
-# Vim/Editor files
+# Vim
 .netrwhist
 [._]*.s[a-v][a-z]
 [._]*.sw[a-p]
@@ -125,6 +127,8 @@ tmp/
 [._]s[a-rt-v][a-z]
 [._]ss[a-gi-z]
 [._]sw[a-p]
+# Use wildcards as well
+*~
 *.swp
 *.out
 *.lock
