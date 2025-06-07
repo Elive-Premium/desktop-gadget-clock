@@ -270,8 +270,9 @@ elm_main(int argc, char **argv)
 
     // Try to find the theme file in multiple locations
     const char *locations[] = {
-        "data/themes/default.edj",  // In build directory
-        "../data/themes/default.edj", // Relative to binary
+        "data/default.edj",  // In build directory
+        "build/data/default.edj",  // In parent build directory
+        "../data/default.edj", // Relative to binary
         DATA_DIR "/themes/default.edj", // Source directory
         NULL
     };
@@ -289,7 +290,7 @@ elm_main(int argc, char **argv)
     }
 
     if (!found) {
-        fprintf(stderr, "ERROR: Could not find theme.edj file!\n");
+        fprintf(stderr, "ERROR: Could not find default.edj file!\n");
         elm_exit();
         free(ad);
         return 1;
