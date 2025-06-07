@@ -195,7 +195,7 @@ _mouse_move_cb(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNUSED, vo
 static void
 _print_help(const char *prog_name)
 {
-    printf("Usage: %s [OPTIONS]\n", prog_name);
+    printf("Usage: %s [OPTIONS]\n\nElive Clock - A beautiful desktop clock\n\n", prog_name);
     printf("Options:\n");
     printf("  --debug    Enable debug output\n");
     printf("  --normal   Create a normal window (not a desktop gadget)\n");
@@ -247,16 +247,16 @@ elm_main(int argc, char **argv)
     // Create window
     if (ad->normal_window) {
         // Normal window mode
-        ad->win = elm_win_add(NULL, "clock-gadget", ELM_WIN_BASIC);
-        elm_win_title_set(ad->win, "Clock Gadget");
+        ad->win = elm_win_add(NULL, "clock-elive", ELM_WIN_BASIC);
+        elm_win_title_set(ad->win, "Elive Clock");
         elm_win_autodel_set(ad->win, EINA_TRUE);
         elm_win_alpha_set(ad->win, EINA_TRUE);
 
         if (ad->debug) printf("Creating normal window\n");
     } else {
         // Desktop gadget mode
-        ad->win = elm_win_add(NULL, "clock-gadget", ELM_WIN_DESKTOP);
-        elm_win_title_set(ad->win, "Clock Gadget");
+        ad->win = elm_win_add(NULL, "clock-elive", ELM_WIN_DESKTOP);
+        elm_win_title_set(ad->win, "Elive Clock");
         elm_win_autodel_set(ad->win, EINA_TRUE);
         elm_win_alpha_set(ad->win, EINA_TRUE);
         elm_win_borderless_set(ad->win, EINA_TRUE);
@@ -334,6 +334,7 @@ elm_main(int argc, char **argv)
     evas_object_show(ad->win);
 
     // Lower the window to bottom if in gadget mode
+    // TODO: move it to layers instead, in the same layer as conky
     if (!ad->normal_window) {
         elm_win_lower(ad->win);
     }

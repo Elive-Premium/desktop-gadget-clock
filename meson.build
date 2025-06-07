@@ -1,4 +1,4 @@
-project('clock-gadget', 'c',
+project('clock-elive', 'c',
   version : '1.0.0',
   license        : 'BSD 2 clause',
   default_options: [ 'buildtype=release', 'c_std=gnu99', 'warning_level=2' ],

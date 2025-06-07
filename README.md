@@ -1,6 +1,6 @@
-# Clock Gadget
+# Elive Clock
 
-A beautiful desktop clock gadget built with EFL (Enlightenment Foundation Libraries).
+A beautiful desktop clock built with EFL (Enlightenment Foundation Libraries).
 
 ## Features
 - Transparent, borderless window
@@ -20,5 +20,5 @@ A beautiful desktop clock gadget built with EFL (Enlightenment Foundation Librar
 meson setup build
 cd build
 meson compile
-./src/clock-gadget --help
+./src/clock-elive --help
 ```
