@@ -1,30 +1,38 @@
+// This file defines the layout, appearance, and interactive behavior of a clock widget
+// using the Enlightenment Foundation Libraries (EFL) EDC (Evas Design Code) format.
+// It describes various UI elements (parts) and how they react to user input (programs).
 collections {
+   // Main group for the clock widget. All parts and programs related to the clock
+   // are defined within this group.
    group { name: "clock/main";
       parts {
+         // Background rectangle for the entire clock widget.
          part { name: "bg";
             type: RECT;
             description { state: "default" 0.0;
-               color: 20 20 20 128;  // Half transparent
+               color: 20 20 20 128;  // Half transparent, providing a subtle background.
                rel1.relative: 0.0 0.0;
                rel2.relative: 1.0 1.0;
             }
          }
 
+         // Text part for displaying the current time (e.g., "00:00").
+         // It has different visual states for default and hover.
          part { name: "time_text";
             type: TEXT;
-            effect: SOFT_SHADOW;
+            effect: SOFT_SHADOW; // Adds a soft shadow effect to the text for better readability.
             description { state: "default" 0.0;
-               color: 255 255 255 255;
-               color3: 0 0 0 128;
+               color: 255 255 255 255; // White text.
+               color3: 0 0 0 128; // Shadow color (black, half transparent).
                text {
-                  text: "00:00";
-                  font: "Sans:style=Bold";
-                  size: 36;
-                  align: 0.5 0.5;
+                  text: "00:00"; // Default placeholder text.
+                  font: "Sans:style=Bold"; // Bold Sans font.
+                  size: 36; // Font size.
+                  align: 0.5 0.5; // Center alignment within its relative box.
                }
                rel1 {
                   relative: 0.1 0.2;
-                  to: "bg";
+                  to: "bg"; // Positioned relative to the background part.
                }
                rel2 {
                   relative: 0.9 0.6;
@@ -32,27 +40,29 @@ collections {
                }
             }
             description { state: "hover" 0.0;
-               inherit: "default" 0.0;
-               color: 255 255 255 255;
-               color3: 100 200 255 200;
+               inherit: "default" 0.0; // Inherits properties from the default state.
+               color: 255 255 255 255; // Text color remains white.
+               color3: 100 200 255 200; // Shadow color changes to a light blue, indicating hover.
             }
          }
 
+         // Text part for displaying the current date (e.g., "Loading...").
+         // Similar to time_text, it also has default and hover states.
          part { name: "date_text";
             type: TEXT;
-            effect: SOFT_SHADOW;
+            effect: SOFT_SHADOW; // Adds a soft shadow effect.
             description { state: "default" 0.0;
-               color: 220 220 220 255;
-               color3: 0 0 0 100;
+               color: 220 220 220 255; // Light grey text.
+               color3: 0 0 0 100; // Shadow color (black, slightly less transparent than time_text).
                text {
-                  text: "Loading...";
-                  font: "Sans";
-                  size: 14;
-                  align: 0.5 0.5;
+                  text: "Loading..."; // Default placeholder text.
+                  font: "Sans"; // Regular Sans font.
+                  size: 14; // Smaller font size.
+                  align: 0.5 0.5; // Center alignment.
                }
                rel1 {
                   relative: 0.1 0.6;
-                  to: "bg";
+                  to: "bg"; // Positioned below the time text, relative to the background.
                }
                rel2 {
                   relative: 0.9 0.85;
@@ -60,22 +70,24 @@ collections {
                }
             }
             description { state: "hover" 0.0;
-               inherit: "default" 0.0;
-               color: 255 255 255 255;
+               inherit: "default" 0.0; // Inherits properties from the default state.
+               color: 255 255 255 255; // Text color changes to white on hover.
             }
          }
 
+         // A rectangular button part for closing the widget.
+         // It's initially invisible and appears on mouse hover over the main widget.
          part { name: "close_button";
             type: RECT;
-            mouse_events: 1;
+            mouse_events: 1; // This part can receive mouse events (clicks, hover).
             description { state: "default" 0.0;
-               visible: 1;
-               color: 255 100 100 0;
-               min: 20 20;
-               max: 20 20;
-               align: 1.0 0.0;
+               visible: 1; // The part itself is visible, but its color is transparent.
+               color: 255 100 100 0; // Fully transparent red color, effectively hidden.
+               min: 20 20; // Minimum size of the button (width, height).
+               max: 20 20; // Maximum size, making it a fixed 20x20 pixel button.
+               align: 1.0 0.0; // Aligns to the top-right corner of its parent.
                rel1 {
-                  relative: 0.9 0.05;
+                  relative: 0.9 0.05; // Positioned near the top-right of the background.
                   to: "bg";
                }
                rel2 {
@@ -84,103 +96,122 @@ collections {
                }
             }
             description { state: "visible" 0.0;
-               inherit: "default" 0.0;
-               color: 255 100 100 200;
+               inherit: "default" 0.0; // Inherits from default.
+               color: 255 100 100 200; // Becomes semi-transparent red when in "visible" state.
             }
             description { state: "hover" 0.0;
-               inherit: "visible" 0.0;
-               color: 255 50 50 255;
+               inherit: "visible" 0.0; // Inherits from visible.
+               color: 255 50 50 255; // Becomes fully opaque, brighter red on hover.
             }
          }
 
+         // Text part for the 'X' symbol displayed on the close button.
+         // It does not receive mouse events directly, relying on 'close_button'.
          part { name: "close_x";
             type: TEXT;
-            mouse_events: 0;
+            mouse_events: 0; // This part does not capture mouse events.
             description { state: "default" 0.0;
-               visible: 1;
-               color: 255 255 255 0;
+               visible: 1; // The part itself is visible, but its color is transparent.
+               color: 255 255 255 0; // Fully transparent white, effectively hidden.
                text {
-                  text: "✕";
+                  text: "✕"; // Unicode 'Multiplication X' symbol.
                   font: "Sans:style=Bold";
                   size: 16;
-                  align: 0.5 0.5;
+                  align: 0.5 0.5; // Center alignment within its parent.
                }
-               rel1.to: "close_button";
+               rel1.to: "close_button"; // Positioned exactly over the close_button.
                rel2.to: "close_button";
             }
             description { state: "visible" 0.0;
-               inherit: "default" 0.0;
-               color: 255 255 255 255;
+               inherit: "default" 0.0; // Inherits from default.
+               color: 255 255 255 255; // Becomes fully opaque white when in "visible" state.
             }
          }
 
+         // A transparent rectangle covering the entire widget.
+         // Used to detect mouse entry/exit for the whole clock area,
+         // triggering hover effects and showing/hiding the close button.
          part { name: "event_area";
             type: RECT;
-            repeat_events: 1;
-            mouse_events: 1;
+            repeat_events: 1; // Allows events to pass through to parts underneath if not handled.
+            mouse_events: 1; // This part can receive mouse events.
             description { state: "default" 0.0;
-               color: 0 0 0 0;
+               color: 0 0 0 0; // Fully transparent.
                rel1.relative: 0.0 0.0;
-               rel2.relative: 1.0 1.0;
+               rel2.relative: 1.0 1.0; // Covers the entire parent area.
             }
          }
       }
 
       programs {
+         // Program to handle mouse entering the main clock area.
+         // Triggers hover states for time and date text, and then shows the close button.
          program { name: "mouse_in";
-            signal: "mouse,in";
-            source: "event_area";
-            action: STATE_SET "hover" 0.0;
-            transition: DECELERATE 0.3;
-            target: "time_text";
-            target: "date_text";
-            after: "show_close";
+            signal: "mouse,in"; // Triggered when the mouse enters.
+            source: "event_area"; // The part that emits the signal.
+            action: STATE_SET "hover" 0.0; // Sets the target parts to their "hover" state.
+            transition: DECELERATE 0.3; // Smooth transition over 0.3 seconds.
+            target: "time_text"; // Apply state change to time_text.
+            target: "date_text"; // Apply state change to date_text.
+            after: "show_close"; // After this program finishes, execute "show_close".
          }
 
+         // Program to make the close button and its 'X' symbol visible.
          program { name: "show_close";
-            action: STATE_SET "visible" 0.0;
-            transition: DECELERATE 0.3;
-            target: "close_button";
-            target: "close_x";
+            action: STATE_SET "visible" 0.0; // Sets the target parts to their "visible" state.
+            transition: DECELERATE 0.3; // Smooth transition.
+            target: "close_button"; // Apply state change to close_button.
+            target: "close_x"; // Apply state change to close_x.
          }
 
+         // Program to handle mouse leaving the main clock area.
+         // Resets time and date text to default, and then hides the close button.
          program { name: "mouse_out";
-            signal: "mouse,out";
-            source: "event_area";
-            action: STATE_SET "default" 0.0;
-            transition: DECELERATE 0.3;
-            target: "time_text";
-            target: "date_text";
-            after: "hide_close";
+            signal: "mouse,out"; // Triggered when the mouse leaves.
+            source: "event_area"; // The part that emits the signal.
+            action: STATE_SET "default" 0.0; // Sets the target parts back to their "default" state.
+            transition: DECELERATE 0.3; // Smooth transition.
+            target: "time_text"; // Apply state change to time_text.
+            target: "date_text"; // Apply state change to date_text.
+            after: "hide_close"; // After this program finishes, execute "hide_close".
          }
 
+         // Program to hide the close button and its 'X' symbol.
          program { name: "hide_close";
-            action: STATE_SET "default" 0.0;
-            transition: DECELERATE 0.3;
-            target: "close_button";
-            target: "close_x";
+            action: STATE_SET "default" 0.0; // Sets the target parts back to their "default" state (transparent).
+            transition: DECELERATE 0.3; // Smooth transition.
+            target: "close_button"; // Apply state change to close_button.
+            target: "close_x"; // Apply state change to close_x.
          }
 
+         // Program to emit a signal when the close button is clicked.
+         // This signal would typically be caught by the application code to perform the actual closing action.
          program { name: "close_click";
-            signal: "mouse,clicked,1";
-            source: "close_button";
-            action: SIGNAL_EMIT "close,clicked" "close_button";
+            signal: "mouse,clicked,1"; // Triggered by a left mouse click.
+            source: "close_button"; // The part that emits the signal.
+            action: SIGNAL_EMIT "close,clicked" "close_button"; // Emits a custom signal.
+            // The signal name is "close,clicked" and the source string is "close_button".
+            // An application using this EDC file would listen for this specific signal.
          }
 
+         // Program to handle mouse entering the close button itself.
+         // Changes the close button's appearance to its "hover" state.
          program { name: "close_mouse_in";
-            signal: "mouse,in";
-            source: "close_button";
-            action: STATE_SET "hover" 0.0;
-            transition: LINEAR 0.1;
-            target: "close_button";
+            signal: "mouse,in"; // Triggered when the mouse enters.
+            source: "close_button"; // The part that emits the signal.
+            action: STATE_SET "hover" 0.0; // Sets the close_button to its "hover" state (brighter red).
+            transition: LINEAR 0.1; // Quick linear transition.
+            target: "close_button"; // Apply state change to close_button.
          }
 
+         // Program to handle mouse leaving the close button itself.
+         // Resets the close button's appearance to its "visible" state.
          program { name: "close_mouse_out";
-            signal: "mouse,out";
-            source: "close_button";
-            action: STATE_SET "visible" 0.0;
-            transition: LINEAR 0.1;
-            target: "close_button";
+            signal: "mouse,out"; // Triggered when the mouse leaves.
+            source: "close_button"; // The part that emits the signal.
+            action: STATE_SET "visible" 0.0; // Sets the close_button back to its "visible" state (semi-transparent red).
+            transition: LINEAR 0.1; // Quick linear transition.
+            target: "close_button"; // Apply state change to close_button.
          }
       }
    }

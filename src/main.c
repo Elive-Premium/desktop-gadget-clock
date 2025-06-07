@@ -1,3 +1,11 @@
+/**
+ * @file main.c
+ * @brief Elive Clock application main source file.
+ *
+ * This application displays the current time and date on the desktop.
+ * It can run as a normal window or as a desktop gadget, and supports
+ * dragging to reposition the window.
+ */
 #define _GNU_SOURCE
 #include <Elementary.h>
 #include <Ecore_X.h>
@@ -6,20 +14,38 @@
 #include <stdlib.h>
 #include <string.h>
 
+/**
+ * @brief Application data structure.
+ *
+ * This structure holds all the necessary data for the application's state
+ * and UI elements.
+ */
 typedef struct _App_Data {
-    Evas_Object *win;
-    Evas_Object *layout;
-    Ecore_Timer *timer;
-    Eina_Bool debug;
-    Eina_Bool normal_window;
-    Eina_Bool show_seconds;
-    Eina_Bool dragging;
-    int drag_start_x;
-    int drag_start_y;
-    int win_start_x;
-    int win_start_y;
+    Evas_Object *win; /**< @brief The main application window. */
+    Evas_Object *layout; /**< @brief The layout object managing the UI elements, loaded from an EDJ theme. */
+    Ecore_Timer *timer; /**< @brief The timer used for updating the time display. */
+    Eina_Bool debug; /**< @brief Flag to enable/disable debug output to stdout. */
+    Eina_Bool normal_window; /**< @brief Flag to determine if the window is a normal application window or a desktop gadget. */
+    Eina_Bool show_seconds; /**< @brief Flag to determine if seconds should be displayed in the time string. */
+    Eina_Bool dragging; /**< @brief Flag indicating if the window is currently being dragged. */
+    int drag_start_x; /**< @brief X coordinate of the mouse pointer when dragging started. */
+    int drag_start_y; /**< @brief Y coordinate of the mouse pointer when dragging started. */
+    int win_start_x; /**< @brief X coordinate of the window when dragging started. */
+    int win_start_y; /**< @brief Y coordinate of the window when dragging started. */
 } App_Data;
 
+/**
+ * @brief Callback for the close button signal from the EDJ layout.
+ *
+ * This function is triggered when the "close,clicked" signal is emitted
+ * from any part matching "*" within the EDJ layout. It quits the main loop,
+ * effectively closing the application.
+ *
+ * @param data A pointer to the App_Data structure.
+ * @param obj The Evas_Object that emitted the signal (the layout object).
+ * @param emission The emission string ("close,clicked").
+ * @param source The source string ("*").
+ */
 static void
 _close_cb(void *data, Evas_Object *obj EINA_UNUSED, const char *emission EINA_UNUSED, const char *source EINA_UNUSED)
 {
@@ -28,6 +54,19 @@ _close_cb(void *data, Evas_Object *obj EINA_UNUSED, const char *emission EINA_UN
     ecore_main_loop_quit();
 }
 
+/**
+ * @brief Timer callback to update the time and date display.
+ *
+ * This function is called periodically by an Ecore_Timer. It retrieves the current
+ * time and date, formats them into strings, and updates the "time_text" and
+ * "date_text" parts of the EDJ layout.
+ *
+ * The time format depends on the `show_seconds` flag in `App_Data`.
+ *
+ * @param data A pointer to the App_Data structure.
+ * @return ECORE_CALLBACK_RENEW to keep the timer running, or ECORE_CALLBACK_CANCEL
+ *         if it's a one-shot timer (though this function typically renews).
+ */
 static Eina_Bool
 _timer_cb(void *data)
 {
@@ -58,6 +97,19 @@ _timer_cb(void *data)
     return ECORE_CALLBACK_RENEW;
 }
 
+/**
+ * @brief Calculates the time interval until the start of the next minute.
+ *
+ * This function is used when `show_seconds` is EINA_FALSE to synchronize
+ * the clock updates precisely with the minute change. It calculates how many
+ * seconds are left until the current minute ends.
+ *
+ * @param show_seconds A boolean flag indicating if seconds are currently shown.
+ *                     If true, the interval is always 1.0 second.
+ * @return The number of seconds until the next minute, or 1.0 if `show_seconds` is true.
+ *         Example: If current time is 10:30:15, returns 45.0.
+ *                  If current time is 10:30:00, returns 60.0.
+ */
 static double
 _get_next_timer_interval(Eina_Bool show_seconds)
 {
@@ -76,6 +128,17 @@ _get_next_timer_interval(Eina_Bool show_seconds)
     }
 }
 
+/**
+ * @brief Callback for window delete requests.
+ *
+ * This function is called when the window receives a "delete,request" smart callback,
+ * typically from the window manager when the user tries to close the window.
+ * It cleans up the timer and quits the main loop.
+ *
+ * @param data A pointer to the App_Data structure.
+ * @param obj The Evas_Object that emitted the signal (the window object).
+ * @param event_info Event information (unused).
+ */
 static void
 _win_del_cb(void *data, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
 {
@@ -84,6 +147,19 @@ _win_del_cb(void *data, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUS
     ecore_main_loop_quit();
 }
 
+/**
+ * @brief Callback for mouse down events on the layout.
+ *
+ * This function handles the start of a window drag operation.
+ * If the left mouse button (button 1) is pressed, it records the initial
+ * mouse and window positions, then grabs the X pointer to ensure all
+ * subsequent mouse events are delivered to this window for dragging.
+ *
+ * @param data A pointer to the App_Data structure.
+ * @param e The Evas canvas.
+ * @param obj The Evas_Object that received the event (the layout object).
+ * @param event_info Pointer to Evas_Event_Mouse_Down containing mouse event details.
+ */
 static void
 _mouse_down_cb(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info)
 {
@@ -113,6 +189,19 @@ _mouse_down_cb(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNUSED, vo
     }
 }
 
+/**
+ * @brief Callback for mouse up events on the layout.
+ *
+ * This function handles the end of a window drag operation or a simple click.
+ * If a drag was in progress (left mouse button released), it releases the
+ * X pointer grab and updates the window's final position.
+ * If it was a simple click (not a drag), it prints the current time to stdout.
+ *
+ * @param data A pointer to the App_Data structure.
+ * @param e The Evas canvas.
+ * @param obj The Evas_Object that received the event (the layout object).
+ * @param event_info Pointer to Evas_Event_Mouse_Up containing mouse event details.
+ */
 static void
 _mouse_up_cb(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info)
 {
@@ -163,6 +252,19 @@ _mouse_up_cb(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void
     }
 }
 
+/**
+ * @brief Callback for mouse move events on the layout.
+ *
+ * This function handles the continuous movement of the window during a drag operation.
+ * If `dragging` is true and the left mouse button is held down, it calculates
+ * the new window position based on the mouse's displacement from the drag start
+ * and moves both the X11 window and the Elementary window.
+ *
+ * @param data A pointer to the App_Data structure.
+ * @param e The Evas canvas.
+ * @param obj The Evas_Object that received the event (the layout object).
+ * @param event_info Pointer to Evas_Event_Mouse_Move containing mouse event details.
+ */
 static void
 _mouse_move_cb(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info)
 {
@@ -192,6 +294,11 @@ _mouse_move_cb(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNUSED, vo
     }
 }
 
+/**
+ * @brief Prints the application's command-line help message.
+ *
+ * @param prog_name The name of the executable (e.g., argv[0]).
+ */
 static void
 _print_help(const char *prog_name)
 {
@@ -203,21 +310,45 @@ _print_help(const char *prog_name)
     printf("  --help     Show this help message\n");
 }
 
+/**
+ * @brief One-shot timer callback to synchronize the clock to the next minute.
+ *
+ * This function is used when `show_seconds` is EINA_FALSE. It is scheduled
+ * to run exactly at the start of the next minute. Once executed, it updates
+ * the display and then sets up a recurring `_timer_cb` to run every 60 seconds.
+ * This ensures the clock updates precisely on the minute mark.
+ *
+ * @param data A pointer to the App_Data structure.
+ * @return ECORE_CALLBACK_CANCEL to ensure this timer runs only once.
+ */
 static Eina_Bool
 _minute_timer_cb(void *data)
 {
     App_Data *ad = data;
 
-    // Update the display
+    // Update the display immediately
     _timer_cb(ad);
 
-    // Set up the regular minute timer
+    // Set up the regular minute timer to run every 60 seconds from now on
     if (ad->timer) ecore_timer_del(ad->timer);
     ad->timer = ecore_timer_add(60.0, _timer_cb, ad);
 
     return ECORE_CALLBACK_CANCEL; // This timer runs only once
 }
 
+/**
+ * @brief Main entry point for the Enlightenment Foundation Libraries (EFL) application.
+ *
+ * This function initializes the application, parses command-line arguments,
+ * creates and configures the main window (either normal or desktop gadget),
+ * loads the UI theme, sets up event callbacks for window management and
+ * mouse interactions, initializes the time display, and starts the update timer.
+ *
+ * @param argc The number of command-line arguments.
+ * @param argv An array of command-line argument strings.
+ *             Example: `argv` could be `{"./elive_clock", "--debug", "--seconds"}`
+ * @return 0 on successful execution, 1 on error (e.g., theme file not found).
+ */
 EAPI_MAIN int
 elm_main(int argc, char **argv)
 {
@@ -269,6 +400,23 @@ elm_main(int argc, char **argv)
     ad->layout = elm_layout_add(ad->win);
 
     // Try to find the theme file in multiple locations
+    /**
+     * @brief Array of possible theme file locations.
+     *
+     * The application attempts to load the `default.edj` theme file
+     * from these paths in order until one is found.
+     *
+     * Example structure:
+     * @code
+     * const char *locations[] = {
+     *     "data/default.edj",         // Relative path, e.g., from build directory
+     *     "build/data/default.edj",   // Another relative path
+     *     "../data/default.edj",      // Relative to binary location
+     *     DATA_DIR "/themes/default.edj", // Absolute path (defined at compile time)
+     *     NULL                        // Sentinel value to mark end of array
+     * };
+     * @endcode
+     */
     const char *locations[] = {
         "data/default.edj",  // In build directory
         "build/data/default.edj",  // In parent build directory
