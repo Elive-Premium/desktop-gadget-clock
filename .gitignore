@@ -1,40 +1,34 @@
-# Prerequisites
-*.d
-
-# Object files
+# Build artifacts
 *.o
 *.ko
 *.obj
 *.elf
-
-# Linker output
+*.d
 *.ilk
 *.map
 *.exp
-
-# Precompiled Headers
 *.gch
 *.pch
-
-# Libraries
 *.lib
 *.a
 *.la
 *.lo
-
-# Shared objects (inc. Windows DLLs)
 *.dll
 *.so
 *.so.*
 *.dylib
-
-# Executables
 *.exe
 *.out
 *.app
 *.i*86
 *.x86_64
 *.hex
+*.mod*
+*.cmd
+*.symbols
+*.edj
+e-module-*.edj
+*.class
 
 # Debug files
 *.dSYM/
@@ -42,11 +36,179 @@
 *.idb
 *.pdb
 
-# Kernel Module Compile Results
-*.mod*
-*.cmd
+# Build system files
 .tmp_versions/
 modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+configure.options.list
+Makefile
+Makefile.in
+aclocal.m4
+autom4te.cache/
+config.guess
+config.h
+config.h.in
+config.log
+config.rpath
+config.status
+config.sub
+configure
+configure.ac.orig
+depcomp
+install-sh
+libtool
+ltmain.sh
+missing
+mkinstalldirs
+stamp-h1
+.deps
+.libs
+src/.deps/
+src/.libs/
+src/Makefile
+src/Makefile.in
+src/e_mod_config.lo
+src/e_mod_config.o
+src/e_mod_main.lo
+src/e_mod_main.o
+src/module.la
+
+# Documentation files
+ABOUT-NLS
+AUTHORS
+COPYING
+ChangeLog
+INSTALL
+NEWS
+README
+module.desktop
+
+# Package files
+*.7z
+*.dmg
+*.gz
+*.iso
+*.jar
+*.rar
+*.tar
+
+# Logs and databases
+*.log
+*.sql
+*.sqlite
+
+# OS generated files
+.DS_Store
+.DS_Store?
+.Spotlight-V100
+.Trashes
+._*
+Icon?
+Thumbs.db
+[Dd]esktop.ini
+ehthumbs.db
+
+# Temporary files
+*~
+*.bak
+*.tmp
+*.temp
+tmp/
+
+# Vim/Editor files
+.netrwhist
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]*.un~
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+*.swp
+*.out
+*.lock
+
+# Debian build files
+mkdeb_editing
+mkdeb_patches
+.pc
+.package-builddeps-listed
+
+# M4 macros
+m4/codeset.m4
+m4/fcntl-o.m4
+m4/threadlib.m4
+m4/gettext.m4
+m4/glibc21.m4
+m4/iconv.m4
+m4/intdiv0.m4
+m4/intmax.m4
+m4/inttypes-pri.m4
+m4/inttypes.m4
+m4/inttypes_h.m4
+m4/isc-posix.m4
+m4/lcmessage.m4
+m4/lib-ld.m4
+m4/lib-link.m4
+m4/lib-prefix.m4
+m4/libtool.m4
+m4/longdouble.m4
+m4/longlong.m4
+m4/ltoptions.m4
+m4/ltsugar.m4
+m4/ltversion.m4
+m4/lt~obsolete.m4
+m4/nls.m4
+m4/po.m4
+m4/printf-posix.m4
+m4/progtest.m4
+m4/signed.m4
+m4/size_max.m4
+m4/stdint_h.m4
+m4/uintmax_t.m4
+m4/ulonglong.m4
+m4/wchar_t.m4
+m4/wint_t.m4
+m4/xsize.m4
+
+# Translation files
+po/Makefile
+po/Makefile.in
+po/Makefile.in.in
+po/Makevars.template
+po/POTFILES
+po/Rules-quot
+po/*.gmo
+po/*.sed
+po/*.header
+po/*.sin
+intl/*
+
+# Tags
+tags
+TAGS
+
+# Misc
+configure.lineno
+e_modules-*.spec
+
+# Tool specific
+.aider*
+!.aider.conf.yml
+!.aiderignore
+.cache/clangd
+
+#
+# NOTE! Don't add files that are generated in specific
+# subdirectories here. Add them in the ".gitignore" file
+# in that subdirectory instead.
+#
+# NOTE! Please use 'git ls-files -i --exclude-standard'
+# command after changing this file, to see if there are
+# any tracked files which get ignored after the change.
+#
+Session.vim
+/build
+.cache
+*~
