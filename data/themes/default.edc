@@ -35,7 +35,7 @@ collections {
                   to: "bg"; // Positioned relative to the background part.
                }
                rel2 {
-                  relative: 0.9 0.6;
+                  relative: 0.9 0.55; // Adjusted to make space for UTC indicator
                   to: "bg";
                }
             }
@@ -43,6 +43,40 @@ collections {
                inherit: "default" 0.0; // Inherits properties from the default state.
                color: 255 255 255 255; // Text color remains white.
                color3: 100 200 255 200; // Shadow color changes to a light blue, indicating hover.
+            }
+         }
+         part { name: "hour_event_area";
+             type: RECT;
+             mouse_events: 1; // This part can receive mouse events (clicks).
+             repeat_events: 0; // Do NOT pass events through to parts underneath.
+             description { state: "default" 0.0;
+                 color: 0 0 0 0; // Fully transparent.
+                 rel1.to: "time_text"; // Position exactly over date_text.
+                 rel2.to: "time_text";
+             }
+         }
+
+         // New text part for displaying "UTC" when in UTC mode.
+         part { name: "utc_indicator_text";
+            type: TEXT;
+            effect: SOFT_SHADOW;
+            description { state: "default" 0.0;
+               color: 200 200 255 255; // Light blueish white text.
+               color3: 0 0 0 100; // Shadow color.
+               text {
+                  text: ""; // Initially empty, set by C code
+                  font: "Sans:style=Bold";
+                  size: 12;
+                  align: 0.5 0.5; // Center alignment.
+               }
+               rel1 {
+                  relative: 0.1 0.55; // Positioned between time and date
+                  to: "bg";
+               }
+               rel2 {
+                  relative: 0.9 0.65; // Positioned between time and date
+                  to: "bg";
+               }
             }
          }
 
@@ -62,7 +96,7 @@ collections {
                   align: 0.5 0.5; // Center alignment.
                }
                rel1 {
-                  relative: 0.1 0.6;
+                  relative: 0.1 0.65; // Adjusted to make space for UTC indicator
                   to: "bg"; // Positioned below the time text, relative to the background.
                }
                rel2 {
@@ -83,15 +117,16 @@ collections {
 
          // New transparent rectangle over date_text to capture clicks for toggling visibility.
          part { name: "date_event_area";
-            type: RECT;
-            mouse_events: 1; // This part can receive mouse events (clicks).
-            repeat_events: 0; // Do NOT pass events through to parts underneath.
-            description { state: "default" 0.0;
-               color: 0 0 0 0; // Fully transparent.
-               rel1.to: "date_text"; // Position exactly over date_text.
-               rel2.to: "date_text";
-            }
+             type: RECT;
+             mouse_events: 1; // This part can receive mouse events (clicks).
+             repeat_events: 0; // Do NOT pass events through to parts underneath.
+             description { state: "default" 0.0;
+                 color: 0 0 0 0; // Fully transparent.
+                 rel1.to: "date_text"; // Position exactly over date_text.
+                 rel2.to: "date_text";
+             }
          }
+
 
          // A rectangular button part for closing the widget.
          // It's initially invisible and appears on mouse hover over the main widget.
@@ -235,8 +270,16 @@ collections {
          // Program to emit a signal when the date_event_area is clicked.
          program { name: "date_click_signal";
             signal: "mouse,clicked,1"; // Triggered by a left mouse click.
-            source: "date_event_area"; // The part that emits the signal.
-            action: SIGNAL_EMIT "date,clicked" "date_event_area"; // Emits a custom signal.
+             source: "date_event_area"; // The part that emits the signal.
+             action: SIGNAL_EMIT "date,clicked" "date_event_area"; // Emits a custom signal.
+         }
+
+
+         // NEW: Program to emit a signal when the main clock area is clicked (for UTC toggle).
+         program { name: "clock_click_utc_toggle";
+            signal: "mouse,clicked,1"; // Triggered by a left mouse click.
+            source: "hour_event_area"; // The part that emits the signal (covers the whole clock).
+            action: SIGNAL_EMIT "clock,utc_toggle" "elm"; // Emits a custom signal.
          }
 
          // Program to show the date text (triggered by C code).

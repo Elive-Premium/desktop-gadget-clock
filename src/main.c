@@ -33,6 +33,7 @@
 typedef struct _Config {
     Eina_Bool show_date;
     int version;
+    Eina_Bool utc_mode; // Added: Flag to store UTC mode preference
 } Config;
 
 /**
@@ -53,6 +54,7 @@ typedef struct _App_Data {
     Eina_Bool normal_window;
     Eina_Bool show_seconds;
     Eina_Bool show_date;
+    Eina_Bool utc_mode; // Added: Flag to track current UTC display mode
 
     /* Dragging state */
     Eina_Bool dragging;
@@ -69,6 +71,7 @@ static Config *_config_load(App_Data *ad);
 static void _config_init(App_Data *ad);
 static void _config_shutdown(App_Data *ad);
 static Eet_Data_Descriptor *_config_descriptor_new(void);
+static void _utc_toggle_cb(void *data, Evas_Object *obj, const char *emission, const char *source);
 
 /**
  * @brief Creates EET data descriptor for configuration
@@ -84,6 +87,7 @@ _config_descriptor_new(void)
 
     EET_DATA_DESCRIPTOR_ADD_BASIC(edd, Config, "show_date", show_date, EET_T_UCHAR);
     EET_DATA_DESCRIPTOR_ADD_BASIC(edd, Config, "version", version, EET_T_INT);
+    EET_DATA_DESCRIPTOR_ADD_BASIC(edd, Config, "utc_mode", utc_mode, EET_T_UCHAR); // Added: UTC mode to config
 
     return edd;
 }
@@ -114,10 +118,12 @@ _config_init(App_Data *ad)
         ad->config = calloc(1, sizeof(Config));
         ad->config->show_date = EINA_TRUE;
         ad->config->version = CONFIG_VERSION;
+        ad->config->utc_mode = EINA_FALSE; // Default to local time
         _config_save(ad);
     }
 
     ad->show_date = ad->config->show_date;
+    ad->utc_mode = ad->config->utc_mode; // Load UTC mode from config
 }
 
 /**
@@ -171,6 +177,7 @@ _config_save(App_Data *ad)
     if (!ad->config) return;
 
     ad->config->show_date = ad->show_date;
+    ad->config->utc_mode = ad->utc_mode; // Save UTC mode
 
     ef = eet_open(ad->config_file, EET_FILE_MODE_WRITE);
     if (!ef) {
@@ -195,10 +202,23 @@ _close_cb(void *data, Evas_Object *obj EINA_UNUSED,
 }
 
 /**
- * @brief Date click callback - toggles date visibility
+ * @brief Callback for toggling UTC mode
  */
 static void
-_date_click_cb(void *data, Evas_Object *obj,
+_utc_toggle_cb(void *data, Evas_Object *obj EINA_UNUSED,
+               const char *emission EINA_UNUSED, const char *source EINA_UNUSED)
+{
+    App_Data *ad = data;
+    ad->utc_mode = !ad->utc_mode;
+    _config_save(ad); // Save the new UTC mode preference
+    _timer_cb(ad); // Immediately update the display
+}
+
+/**
+ * @brief Date click callback - toggles date visibility (now unused, but kept for reference if needed)
+ */
+static void
+_date_click_cb(void *data, Evas_Object *obj EINA_UNUSED,
                const char *emission EINA_UNUSED, const char *source EINA_UNUSED)
 {
     App_Data *ad = data;
@@ -218,12 +238,17 @@ _timer_cb(void *data)
 {
     App_Data *ad = data;
     time_t rawtime;
+    struct tm timeinfo_buf; // Buffer for reentrant time functions
     struct tm *timeinfo;
     char time_str[32];
     char date_str[64];
 
     time(&rawtime);
-    timeinfo = localtime(&rawtime);
+    if (ad->utc_mode) {
+        timeinfo = gmtime_r(&rawtime, &timeinfo_buf); // Use UTC time
+    } else {
+        timeinfo = localtime_r(&rawtime, &timeinfo_buf); // Use local time
+    }
 
     strftime(time_str, sizeof(time_str),
              ad->show_seconds ? "%H:%M:%S" : "%H:%M", timeinfo);
@@ -231,6 +256,9 @@ _timer_cb(void *data)
 
     edje_object_part_text_set(elm_layout_edje_get(ad->layout), "time_text", time_str);
     edje_object_part_text_set(elm_layout_edje_get(ad->layout), "date_text", date_str);
+    // Set UTC indicator text
+    edje_object_part_text_set(elm_layout_edje_get(ad->layout), "utc_indicator_text",
+                              ad->utc_mode ? "UTC" : "");
 
     return ECORE_CALLBACK_RENEW;
 }
@@ -289,7 +317,7 @@ _mouse_down_cb(void *data, Evas *e EINA_UNUSED,
 }
 
 /**
- * @brief Mouse up callback - ends dragging or prints time
+ * @brief Mouse up callback - ends dragging (UTC toggle moved to EDC signal)
  */
 static void
 _mouse_up_cb(void *data, Evas *e EINA_UNUSED,
@@ -315,18 +343,8 @@ _mouse_up_cb(void *data, Evas *e EINA_UNUSED,
 
             evas_object_move(ad->win, final_x, final_y);
         }
-    } else {
-        time_t rawtime;
-        struct tm *timeinfo;
-        char time_str[32];
-
-        time(&rawtime);
-        timeinfo = localtime(&rawtime);
-        strftime(time_str, sizeof(time_str),
-                 ad->show_seconds ? "%H:%M:%S" : "%H:%M", timeinfo);
-
-        printf("Current time: %s\n", time_str);
     }
+    // UTC toggle logic removed from here, now handled by _utc_toggle_cb via EDC signal
 }
 
 /**
@@ -481,6 +499,9 @@ elm_main(int argc, char **argv)
     evas_object_event_callback_add(ad->layout, EVAS_CALLBACK_MOUSE_DOWN, _mouse_down_cb, ad);
     evas_object_event_callback_add(ad->layout, EVAS_CALLBACK_MOUSE_UP, _mouse_up_cb, ad);
     evas_object_event_callback_add(ad->layout, EVAS_CALLBACK_MOUSE_MOVE, _mouse_move_cb, ad);
+
+    // Connect EDC signal for UTC toggle
+    elm_object_signal_callback_add(ad->layout, "clock,utc_toggle", "elm", _utc_toggle_cb, ad);
 
     /* Initial update */
     _timer_cb(ad);
