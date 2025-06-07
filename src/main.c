@@ -27,12 +27,16 @@ typedef struct _App_Data {
     Eina_Bool debug; /**< @brief Flag to enable/disable debug output to stdout. */
     Eina_Bool normal_window; /**< @brief Flag to determine if the window is a normal application window or a desktop gadget. */
     Eina_Bool show_seconds; /**< @brief Flag to determine if seconds should be displayed in the time string. */
+    Eina_Bool show_date; /**< @brief Flag to determine if the date should be displayed. */
     Eina_Bool dragging; /**< @brief Flag indicating if the window is currently being dragged. */
     int drag_start_x; /**< @brief X coordinate of the mouse pointer when dragging started. */
     int drag_start_y; /**< @brief Y coordinate of the mouse pointer when dragging started. */
     int win_start_x; /**< @brief X coordinate of the window when dragging started. */
     int win_start_y; /**< @brief Y coordinate of the window when dragging started. */
 } App_Data;
+
+// Function prototypes
+static Eina_Bool _timer_cb(void *data); // NEW: Added prototype for _timer_cb
 
 /**
  * @brief Callback for the close button signal from the EDJ layout.
@@ -52,6 +56,36 @@ _close_cb(void *data, Evas_Object *obj EINA_UNUSED, const char *emission EINA_UN
     App_Data *ad = data;
     if (ad->debug) printf("Close button clicked\n");
     ecore_main_loop_quit();
+}
+
+/**
+ * @brief Callback for the date text click signal from the EDJ layout.
+ *
+ * This function is triggered when the "date,clicked" signal is emitted
+ * from the date_event_area within the EDJ layout. It toggles the visibility
+ * of the date display and updates the EDJ state accordingly.
+ *
+ * @param data A pointer to the App_Data structure.
+ * @param obj The Evas_Object that emitted the signal (the layout object).
+ * @param emission The emission string ("date,clicked").
+ * @param source The source string ("date_event_area").
+ */
+static void
+_date_click_cb(void *data, Evas_Object *obj, const char *emission EINA_UNUSED, const char *source EINA_UNUSED)
+{
+    App_Data *ad = data;
+    ad->show_date = !ad->show_date; // Toggle the state
+
+    if (ad->debug) printf("Date area clicked. show_date: %s\n", ad->show_date ? "TRUE" : "FALSE");
+
+    if (ad->show_date) {
+        elm_layout_signal_emit(obj, "date,show", "elm");
+    } else {
+        elm_layout_signal_emit(obj, "date,hide", "elm");
+    }
+
+    // Update the date text immediately, even if hidden, to keep it current
+    _timer_cb(ad);
 }
 
 /**
@@ -359,6 +393,7 @@ elm_main(int argc, char **argv)
     ad->debug = EINA_FALSE;
     ad->normal_window = EINA_FALSE;
     ad->show_seconds = EINA_FALSE;
+    ad->show_date = EINA_TRUE; // NEW: Date is visible by default
     ad->dragging = EINA_FALSE;
 
     for (int i = 1; i < argc; i++) {
@@ -457,6 +492,7 @@ elm_main(int argc, char **argv)
     // Set up callbacks
     evas_object_smart_callback_add(ad->win, "delete,request", _win_del_cb, ad);
     elm_object_signal_callback_add(ad->layout, "close,clicked", "*", _close_cb, ad);
+    elm_object_signal_callback_add(ad->layout, "date,clicked", "date_event_area", _date_click_cb, ad);
 
     // Mouse event callbacks
     evas_object_event_callback_add(ad->layout, EVAS_CALLBACK_MOUSE_DOWN, _mouse_down_cb, ad);
@@ -465,6 +501,13 @@ elm_main(int argc, char **argv)
 
     // Initial time update
     _timer_cb(ad);
+
+    // Ensure initial date visibility state is applied
+    if (ad->show_date) {
+        elm_layout_signal_emit(ad->layout, "date,show", "elm");
+    } else {
+        elm_layout_signal_emit(ad->layout, "date,hide", "elm");
+    }
 
     // Set up timer for updates
     if (ad->show_seconds) {
