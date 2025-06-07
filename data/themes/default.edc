@@ -170,7 +170,7 @@ collections {
             action: STATE_SET "hover" 0.0; // Sets the target parts to their "hover" state.
             transition: DECELERATE 0.3; // Smooth transition over 0.3 seconds.
             target: "time_text"; // Apply state change to time_text.
-            target: "date_text"; // Apply state change to date_text.
+            // target: "date_text"; // REMOVED: Date visibility is controlled by C code
             after: "show_close"; // After this program finishes, execute "show_close".
          }
 
@@ -190,7 +190,7 @@ collections {
             action: STATE_SET "default" 0.0; // Sets the target parts back to their "default" state.
             transition: DECELERATE 0.3; // Smooth transition.
             target: "time_text"; // Apply state change to time_text.
-            target: "date_text"; // Apply state change to date_text.
+            // target: "date_text"; // REMOVED: Date visibility is controlled by C code
             after: "hide_close"; // After this program finishes, execute "hide_close".
          }
 
