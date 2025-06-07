@@ -270,9 +270,9 @@ elm_main(int argc, char **argv)
 
     // Try to find the theme file in multiple locations
     const char *locations[] = {
-        "data/theme.edj",           // In build directory
-        "../data/theme.edj",        // Relative to binary
-        DATA_DIR "/theme.edj",      // Source directory
+        "data/themes/default.edj",  // In build directory
+        "../data/themes/default.edj", // Relative to binary
+        DATA_DIR "/themes/default.edj", // Source directory
         NULL
     };
 
