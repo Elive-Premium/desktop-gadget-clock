@@ -276,10 +276,10 @@ collections {
 
 
          // NEW: Program to emit a signal when the main clock area is clicked (for UTC toggle).
-         program { name: "clock_click_utc_toggle";
+         program { name: "clock_click_mode_toggle"; // Renamed from clock_click_utc_toggle
             signal: "mouse,clicked,1"; // Triggered by a left mouse click.
             source: "hour_event_area"; // The part that emits the signal (covers the whole clock).
-            action: SIGNAL_EMIT "clock,utc_toggle" "elm"; // Emits a custom signal.
+            action: SIGNAL_EMIT "clock,mode_toggle" "elm"; // Emits a custom signal.
          }
 
          // Program to show the date text (triggered by C code).

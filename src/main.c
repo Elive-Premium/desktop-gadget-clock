@@ -21,11 +21,19 @@
 #include <sys/stat.h>
 #include <errno.h>
 
-#define CONFIG_VERSION 1
+#define CONFIG_VERSION 2 // Updated version for clock_mode
 #define WINDOW_WIDTH 300
 #define WINDOW_HEIGHT 120
 #define TIMER_INTERVAL_SECONDS 1.0
 #define TIMER_INTERVAL_MINUTES 60.0
+
+#define CONFIG_FILE_SUFFIX "/config.eet"
+#define CONFIG_FILE_SUFFIX_LEN (sizeof(CONFIG_FILE_SUFFIX) - 1)
+
+// Clock display modes
+#define CLOCK_MODE_LOCAL  0
+#define CLOCK_MODE_UTC    1
+#define CLOCK_MODE_SWATCH 2
 
 /**
  * @brief Configuration data structure for persistent settings
@@ -33,7 +41,8 @@
 typedef struct _Config {
     Eina_Bool show_date;
     int version;
-    Eina_Bool utc_mode; // Added: Flag to store UTC mode preference
+    Eina_Bool utc_mode; // Kept for migration from older configs (version 1)
+    int clock_mode;     // New: 0 for local, 1 for UTC, 2 for Swatch
 } Config;
 
 /**
@@ -54,7 +63,7 @@ typedef struct _App_Data {
     Eina_Bool normal_window;
     Eina_Bool show_seconds;
     Eina_Bool show_date;
-    Eina_Bool utc_mode; // Added: Flag to track current UTC display mode
+    int clock_mode; // New: 0 for local, 1 for UTC, 2 for Swatch
 
     /* Dragging state for window movement */
     Eina_Bool dragging;
@@ -76,11 +85,13 @@ static Config *_config_load(App_Data *ad);
 static void _config_init(App_Data *ad);
 static void _config_shutdown(App_Data *ad);
 static Eet_Data_Descriptor *_config_descriptor_new(void);
-static void _utc_toggle_cb(void *data, Evas_Object *obj, const char *emission, const char *source);
+// static void _utc_toggle_cb(void *data, Evas_Object *obj, const char *emission, const char *source); // Removed
 static void _date_click_cb(void *data, Evas_Object *obj, const char *emission, const char *source);
+static void _clock_mode_toggle_cb(void *data, Evas_Object *obj, const char *emission, const char *source);
 static void _mouse_down_cb(void *data, Evas *e, Evas_Object *obj, void *event_info);
 static void _mouse_up_cb(void *data, Evas *e, Evas_Object *obj, void *event_info);
 static void _mouse_move_cb(void *data, Evas *e, Evas_Object *obj, void *event_info);
+static void _get_swatch_time(time_t rawtime, char *time_str, size_t time_str_len);
 
 
 /**
@@ -97,7 +108,8 @@ _config_descriptor_new(void)
 
     EET_DATA_DESCRIPTOR_ADD_BASIC(edd, Config, "show_date", show_date, EET_T_UCHAR);
     EET_DATA_DESCRIPTOR_ADD_BASIC(edd, Config, "version", version, EET_T_INT);
-    EET_DATA_DESCRIPTOR_ADD_BASIC(edd, Config, "utc_mode", utc_mode, EET_T_UCHAR); // Added: UTC mode to config
+    EET_DATA_DESCRIPTOR_ADD_BASIC(edd, Config, "utc_mode", utc_mode, EET_T_UCHAR); // Kept for migration
+    EET_DATA_DESCRIPTOR_ADD_BASIC(edd, Config, "clock_mode", clock_mode, EET_T_INT); // New clock mode
 
     return edd;
 }
@@ -114,26 +126,43 @@ _config_init(App_Data *ad)
     home = getenv("HOME");
     if (!home) home = "/tmp";
 
-    snprintf(config_dir, sizeof(config_dir), "%s/.config/elive-clock", home);
+    // Ensure enough space for the suffix in the full path
+    snprintf(config_dir, sizeof(config_dir) - CONFIG_FILE_SUFFIX_LEN, "%s/.config/elive-clock", home);
 
     if (mkdir(config_dir, 0755) < 0 && errno != EEXIST) {
         fprintf(stderr, "Warning: Failed to create config directory: %s\n", strerror(errno));
     }
 
     ad->config_file = malloc(PATH_MAX);
-    snprintf(ad->config_file, PATH_MAX, "%s/config.eet", config_dir);
+    // Concatenate the directory and the config file name
+    snprintf(ad->config_file, PATH_MAX, "%s%s", config_dir, CONFIG_FILE_SUFFIX);
 
     ad->config = _config_load(ad);
     if (!ad->config) {
         ad->config = calloc(1, sizeof(Config));
         ad->config->show_date = EINA_TRUE;
         ad->config->version = CONFIG_VERSION;
-        ad->config->utc_mode = EINA_FALSE; // Default to local time
+        ad->config->clock_mode = CLOCK_MODE_LOCAL; // Default to local time
+        ad->config->utc_mode = EINA_FALSE; // Default for new configs
         _config_save(ad);
+    } else {
+        // Handle upgrade from older config versions
+        if (ad->config->version < CONFIG_VERSION) {
+            if (ad->config->version == 1) { // Migrating from version 1
+                if (ad->config->utc_mode) {
+                    ad->config->clock_mode = CLOCK_MODE_UTC;
+                } else {
+                    ad->config->clock_mode = CLOCK_MODE_LOCAL;
+                }
+            }
+            // Update version to current
+            ad->config->version = CONFIG_VERSION;
+            _config_save(ad); // Save updated config
+        }
     }
 
     ad->show_date = ad->config->show_date;
-    ad->utc_mode = ad->config->utc_mode; // Load UTC mode from config
+    ad->clock_mode = ad->config->clock_mode; // Load clock mode from config
 }
 
 /**
@@ -187,7 +216,8 @@ _config_save(App_Data *ad)
     if (!ad->config) return;
 
     ad->config->show_date = ad->show_date;
-    ad->config->utc_mode = ad->utc_mode; // Save UTC mode
+    ad->config->clock_mode = ad->clock_mode; // Save clock mode
+    // ad->config->utc_mode is no longer actively set, but kept for backward compatibility loading
 
     ef = eet_open(ad->config_file, EET_FILE_MODE_WRITE);
     if (!ef) {
@@ -212,21 +242,6 @@ _close_cb(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED,
 }
 
 /**
- * @brief Callback for toggling UTC mode
- */
-static void
-_utc_toggle_cb(void *data, Evas_Object *obj EINA_UNUSED,
-               const char *emission EINA_UNUSED, const char *source EINA_UNUSED)
-{
-    App_Data *ad = data;
-    if (ad->click_suppress) return; // Suppress if a drag was detected
-
-    ad->utc_mode = !ad->utc_mode;
-    _config_save(ad); // Save the new UTC mode preference
-    _timer_cb(ad); // Immediately update the display
-}
-
-/**
  * @brief Date click callback - toggles date visibility (now unused, but kept for reference if needed)
  */
 static void
@@ -244,6 +259,59 @@ _date_click_cb(void *data, Evas_Object *obj EINA_UNUSED,
 }
 
 /**
+ * @brief Callback for toggling clock display mode (Local, UTC, Swatch)
+ */
+static void
+_clock_mode_toggle_cb(void *data, Evas_Object *obj EINA_UNUSED,
+                      const char *emission EINA_UNUSED, const char *source EINA_UNUSED)
+{
+    App_Data *ad = data;
+    if (ad->click_suppress) return; // Suppress if a drag was detected
+
+    ad->clock_mode++;
+    if (ad->clock_mode > CLOCK_MODE_SWATCH) {
+        ad->clock_mode = CLOCK_MODE_LOCAL;
+    }
+    _config_save(ad);
+    _timer_cb(ad); // Immediately update the display
+}
+
+/**
+ * @brief Calculates Swatch Internet Time (@beats)
+ * @param rawtime The current time in UTC.
+ * @param time_str Buffer to store the formatted time string.
+ * @param time_str_len Length of the time_str buffer.
+ */
+static void
+_get_swatch_time(time_t rawtime, char *time_str, size_t time_str_len)
+{
+    struct tm timeinfo_utc;
+    struct tm *timeinfo;
+    double beats;
+
+    // Get UTC time
+    timeinfo = gmtime_r(&rawtime, &timeinfo_utc);
+
+    // Swatch Internet Time (Biel Mean Time - BMT) is UTC+1
+    // Calculate seconds since midnight BMT
+    int hour_bmt = timeinfo->tm_hour + 1; // UTC+1
+    int min_bmt = timeinfo->tm_min;
+    int sec_bmt = timeinfo->tm_sec;
+
+    // Handle day wrap-around for BMT (e.g., 23:00 UTC becomes 00:00 BMT next day)
+    if (hour_bmt >= 24) {
+        hour_bmt -= 24;
+    }
+
+    long total_seconds_bmt = (long)hour_bmt * 3600 + (long)min_bmt * 60 + (long)sec_bmt;
+
+    // 1 day = 1000 beats. 1 beat = 86.4 seconds.
+    beats = (double)total_seconds_bmt / 86.4;
+
+    snprintf(time_str, time_str_len, "@%06.2f", beats); // Format as @BBB.FF
+}
+
+/**
  * @brief Timer callback - updates time and date display
  */
 static Eina_Bool
@@ -257,21 +325,39 @@ _timer_cb(void *data)
     char date_str[64];
 
     time(&rawtime);
-    if (ad->utc_mode) {
-        timeinfo = gmtime_r(&rawtime, &timeinfo_buf); // Use UTC time
-    } else {
-        timeinfo = localtime_r(&rawtime, &timeinfo_buf); // Use local time
-    }
 
-    strftime(time_str, sizeof(time_str),
-             ad->show_seconds ? "%H:%M:%S" : "%H:%M", timeinfo);
-    strftime(date_str, sizeof(date_str), "%A, %B %d, %Y", timeinfo);
+    switch (ad->clock_mode) {
+        case CLOCK_MODE_LOCAL:
+            timeinfo = localtime_r(&rawtime, &timeinfo_buf); // Use local time
+            strftime(time_str, sizeof(time_str),
+                     ad->show_seconds ? "%H:%M:%S" : "%H:%M", timeinfo);
+            strftime(date_str, sizeof(date_str), "%A, %B %d, %Y", timeinfo);
+            edje_object_part_text_set(elm_layout_edje_get(ad->layout), "utc_indicator_text", "");
+            break;
+        case CLOCK_MODE_UTC:
+            timeinfo = gmtime_r(&rawtime, &timeinfo_buf); // Use UTC time
+            strftime(time_str, sizeof(time_str),
+                     ad->show_seconds ? "%H:%M:%S" : "%H:%M", timeinfo);
+            strftime(date_str, sizeof(date_str), "%A, %B %d, %Y", timeinfo);
+            edje_object_part_text_set(elm_layout_edje_get(ad->layout), "utc_indicator_text", "UTC");
+            break;
+        case CLOCK_MODE_SWATCH:
+            _get_swatch_time(rawtime, time_str, sizeof(time_str));
+            snprintf(date_str, sizeof(date_str), "Biel Mean Time"); // Or clear it: ""
+            edje_object_part_text_set(elm_layout_edje_get(ad->layout), "utc_indicator_text", "SWATCH");
+            break;
+        default:
+            // Should not happen, fall back to local
+            timeinfo = localtime_r(&rawtime, &timeinfo_buf);
+            strftime(time_str, sizeof(time_str),
+                     ad->show_seconds ? "%H:%M:%S" : "%H:%M", timeinfo);
+            strftime(date_str, sizeof(date_str), "%A, %B %d, %Y", timeinfo);
+            edje_object_part_text_set(elm_layout_edje_get(ad->layout), "utc_indicator_text", "");
+            break;
+    }
 
     edje_object_part_text_set(elm_layout_edje_get(ad->layout), "time_text", time_str);
     edje_object_part_text_set(elm_layout_edje_get(ad->layout), "date_text", date_str);
-    // Set UTC indicator text
-    edje_object_part_text_set(elm_layout_edje_get(ad->layout), "utc_indicator_text",
-                              ad->utc_mode ? "UTC" : "");
 
     return ECORE_CALLBACK_RENEW;
 }
@@ -482,7 +568,6 @@ elm_main(int argc, char **argv)
     ad->layout = elm_layout_add(ad->win);
 
     /* Find theme file */
-        /* Find theme file */
     for (int i = 0; theme_locations[i]; i++) {
         if (ecore_file_exists(theme_locations[i])) {
             snprintf(edj_path, sizeof(edj_path), "%s", theme_locations[i]);
@@ -522,8 +607,8 @@ elm_main(int argc, char **argv)
     evas_object_event_callback_add(ad->layout, EVAS_CALLBACK_MOUSE_UP, _mouse_up_cb, ad);
     evas_object_event_callback_add(ad->layout, EVAS_CALLBACK_MOUSE_MOVE, _mouse_move_cb, ad);
 
-    // Connect EDC signal for UTC toggle
-    elm_object_signal_callback_add(ad->layout, "clock,utc_toggle", "elm", _utc_toggle_cb, ad);
+    // Connect EDC signal for clock mode toggle
+    elm_object_signal_callback_add(ad->layout, "clock,mode_toggle", "elm", _clock_mode_toggle_cb, ad); // New signal for cycling modes
 
     /* Initial update */
     _timer_cb(ad);
