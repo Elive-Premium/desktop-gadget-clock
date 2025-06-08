@@ -127,6 +127,18 @@ collections {
              }
          }
 
+         // New transparent rectangle to capture clicks
+         part { name: "utc_indicator_event_area";
+             type: RECT;
+             mouse_events: 1; // This part can receive mouse events (clicks).
+             repeat_events: 0; // Do NOT pass events through to parts underneath.
+             description { state: "default" 0.0;
+                 color: 0 0 0 0; // Fully transparent.
+                 rel1.to: "utc_indicator_text"; // Position exactly over date_text.
+                 rel2.to: "utc_indicator_text";
+             }
+         }
+
 
          // A rectangular button part for closing the widget.
          // It's initially invisible and appears on mouse hover over the main widget.
@@ -275,11 +287,18 @@ collections {
          }
 
 
-         // NEW: Program to emit a signal when the main clock area is clicked (for UTC toggle).
+         // Program to emit a signal when the main clock area is clicked (for UTC toggle).
          program { name: "clock_click_mode_toggle"; // Renamed from clock_click_utc_toggle
             signal: "mouse,clicked,1"; // Triggered by a left mouse click.
             source: "hour_event_area"; // The part that emits the signal (covers the whole clock).
             action: SIGNAL_EMIT "clock,mode_toggle" "elm"; // Emits a custom signal.
+         }
+
+         // NEW: Program to emit a signal when the UTC indicator area is clicked.
+         program { name: "utc_indicator_click_mode_toggle";
+            signal: "mouse,clicked,1"; // Triggered by a left mouse click.
+            source: "utc_indicator_event_area"; // The part that emits the signal.
+            action: SIGNAL_EMIT "utc_indicator,clicked" "elm"; // Emits the same signal as the main clock area.
          }
 
          // Program to show the date text (triggered by C code).

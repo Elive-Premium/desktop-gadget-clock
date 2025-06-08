@@ -87,6 +87,7 @@ static void _config_shutdown(App_Data *ad);
 static Eet_Data_Descriptor *_config_descriptor_new(void);
 static void _date_click_cb(void *data, Evas_Object *obj, const char *emission, const char *source);
 static void _clock_mode_toggle_cb(void *data, Evas_Object *obj, const char *emission, const char *source);
+static void _utc_indicator_click_cb(void *data, Evas_Object *obj, const char *emission, const char *source);
 static void _mouse_down_cb(void *data, Evas *e, Evas_Object *obj, void *event_info);
 static void _mouse_up_cb(void *data, Evas *e, Evas_Object *obj, void *event_info);
 static void _mouse_move_cb(void *data, Evas *e, Evas_Object *obj, void *event_info);
@@ -256,6 +257,25 @@ _date_click_cb(void *data, Evas_Object *obj EINA_UNUSED,
 
     elm_layout_signal_emit(obj, ad->show_date ? "date,show" : "date,hide", "elm");
     _config_save(ad);
+    _timer_cb(ad);
+}
+
+/**
+ * @brief Date click callback - toggles date visibility (now unused, but kept for reference if needed)
+ */
+static void
+_utc_indicator_click_cb(void *data, Evas_Object *obj EINA_UNUSED,
+               const char *emission EINA_UNUSED, const char *source EINA_UNUSED)
+{
+    App_Data *ad = data;
+    if (ad->click_suppress) return; // Suppress if a drag was detected
+
+    // If the current mode is Swatch Internet Time, launch web-launcher
+    if (ad->clock_mode == CLOCK_MODE_SWATCH)
+    {
+        ecore_exe_run("web-launcher https://internettime.elivecd.org/", NULL);
+    }
+
     _timer_cb(ad);
 }
 
@@ -622,6 +642,7 @@ elm_main(int argc, char **argv)
     evas_object_smart_callback_add(ad->win, "delete,request", _win_del_cb, ad);
     elm_object_signal_callback_add(ad->layout, "close,clicked", "*", _close_cb, ad);
     elm_object_signal_callback_add(ad->layout, "date,clicked", "date_event_area", _date_click_cb, ad);
+    elm_object_signal_callback_add(ad->layout, "utc_indicator,clicked", "elm", _utc_indicator_click_cb, ad);
 
     /* Mouse event callbacks */
     evas_object_event_callback_add(ad->layout, EVAS_CALLBACK_MOUSE_DOWN, _mouse_down_cb, ad);
