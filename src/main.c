@@ -21,7 +21,7 @@
 #include <sys/stat.h>
 #include <errno.h>
 
-#define CONFIG_VERSION 2 // Updated version for clock_mode
+#define CONFIG_VERSION 3 // Updated version for clock_mode and window position
 #define WINDOW_WIDTH 300
 #define WINDOW_HEIGHT 120
 #define TIMER_INTERVAL_SECONDS 1.0
@@ -43,6 +43,8 @@ typedef struct _Config {
     int version;
     Eina_Bool utc_mode; // Kept for migration from older configs (version 1)
     int clock_mode;     // New: 0 for local, 1 for UTC, 2 for Swatch
+    int win_x;          // New: Saved window X position
+    int win_y;          // New: Saved window Y position
 } Config;
 
 /**
@@ -64,6 +66,8 @@ typedef struct _App_Data {
     Eina_Bool show_seconds;
     Eina_Bool show_date;
     int clock_mode; // New: 0 for local, 1 for UTC, 2 for Swatch
+    int win_x;      // Current window X position
+    int win_y;      // Current window Y position
 
     /* Dragging state for window movement */
     Eina_Bool dragging;
@@ -91,6 +95,7 @@ static void _utc_indicator_click_cb(void *data, Evas_Object *obj, const char *em
 static void _mouse_down_cb(void *data, Evas *e, Evas_Object *obj, void *event_info);
 static void _mouse_up_cb(void *data, Evas *e, Evas_Object *obj, void *event_info);
 static void _mouse_move_cb(void *data, Evas *e, Evas_Object *obj, void *event_info);
+static void _win_move_cb(void *data, Evas_Object *obj, void *event_info); // New prototype
 static void _get_swatch_time(time_t rawtime, char *time_str, size_t time_str_len);
 static Eina_Bool _minute_timer_cb(void *data);
 static double _get_next_timer_interval(Eina_Bool show_seconds); // Added missing prototype
@@ -112,6 +117,8 @@ _config_descriptor_new(void)
     EET_DATA_DESCRIPTOR_ADD_BASIC(edd, Config, "version", version, EET_T_INT);
     EET_DATA_DESCRIPTOR_ADD_BASIC(edd, Config, "utc_mode", utc_mode, EET_T_UCHAR); // Kept for migration
     EET_DATA_DESCRIPTOR_ADD_BASIC(edd, Config, "clock_mode", clock_mode, EET_T_INT); // New clock mode
+    EET_DATA_DESCRIPTOR_ADD_BASIC(edd, Config, "win_x", win_x, EET_T_INT); // New window X position
+    EET_DATA_DESCRIPTOR_ADD_BASIC(edd, Config, "win_y", win_y, EET_T_INT); // New window Y position
 
     return edd;
 }
@@ -146,16 +153,23 @@ _config_init(App_Data *ad)
         ad->config->version = CONFIG_VERSION;
         ad->config->clock_mode = CLOCK_MODE_LOCAL; // Default to local time
         ad->config->utc_mode = EINA_FALSE; // Default for new configs
+        ad->config->win_x = 0; // Default position for new configs
+        ad->config->win_y = 0;
         _config_save(ad);
     } else {
         // Handle upgrade from older config versions
         if (ad->config->version < CONFIG_VERSION) {
-            if (ad->config->version == 1) { // Migrating from version 1
+            if (ad->config->version == 1) { // Migrating from version 1 to 2
                 if (ad->config->utc_mode) {
                     ad->config->clock_mode = CLOCK_MODE_UTC;
                 } else {
                     ad->config->clock_mode = CLOCK_MODE_LOCAL;
                 }
+            }
+            // Migration from version 2 to 3 (or any version before 3)
+            if (ad->config->version < 3) {
+                ad->config->win_x = 0; // Default position for older configs
+                ad->config->win_y = 0;
             }
             // Update version to current
             ad->config->version = CONFIG_VERSION;
@@ -165,6 +179,8 @@ _config_init(App_Data *ad)
 
     ad->show_date = ad->config->show_date;
     ad->clock_mode = ad->config->clock_mode; // Load clock mode from config
+    ad->win_x = ad->config->win_x; // Load window position from config
+    ad->win_y = ad->config->win_y;
 }
 
 /**
@@ -219,6 +235,8 @@ _config_save(App_Data *ad)
 
     ad->config->show_date = ad->show_date;
     ad->config->clock_mode = ad->clock_mode; // Save clock mode
+    ad->config->win_x = ad->win_x; // Save window X position
+    ad->config->win_y = ad->win_y; // Save window Y position
     // ad->config->utc_mode is no longer actively set, but kept for backward compatibility loading
 
     ef = eet_open(ad->config_file, EET_FILE_MODE_WRITE);
@@ -523,6 +541,17 @@ _mouse_move_cb(void *data, Evas *e EINA_UNUSED,
 }
 
 /**
+ * @brief Callback for window move events to save position
+ */
+static void
+_win_move_cb(void *data, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
+{
+    App_Data *ad = data;
+    evas_object_geometry_get(ad->win, &ad->win_x, &ad->win_y, NULL, NULL);
+    _config_save(ad);
+}
+
+/**
  * @brief Prints help message
  */
 static void
@@ -640,6 +669,7 @@ elm_main(int argc, char **argv)
 
     /* Set up callbacks */
     evas_object_smart_callback_add(ad->win, "delete,request", _win_del_cb, ad);
+    evas_object_smart_callback_add(ad->win, "move", _win_move_cb, ad); // Add move callback
     elm_object_signal_callback_add(ad->layout, "close,clicked", "*", _close_cb, ad);
     elm_object_signal_callback_add(ad->layout, "date,clicked", "date_event_area", _date_click_cb, ad);
     elm_object_signal_callback_add(ad->layout, "utc_indicator,clicked", "elm", _utc_indicator_click_cb, ad);
@@ -672,6 +702,74 @@ elm_main(int argc, char **argv)
 
     /* Show window */
     evas_object_resize(ad->win, WINDOW_WIDTH, WINDOW_HEIGHT);
+
+    // Adjust window position to be within screen limits
+    int screen_x, screen_y, screen_w, screen_h;
+    int win_w = WINDOW_WIDTH;
+    int win_h = WINDOW_HEIGHT;
+
+    // Get screen geometry (x, y, width, height)
+    elm_win_screen_size_get(ad->win, &screen_x, &screen_y, &screen_w, &screen_h);
+
+    int x = ad->win_x;
+    int y = ad->win_y;
+    Eina_Bool position_adjusted = EINA_FALSE;
+
+    // Clamp X position: Ensure left edge is not off-screen left
+    if (x < screen_x) {
+        if (ad->debug) fprintf(stderr, "DEBUG: Adjusting window X from %d to %d (left clamp)\n", x, screen_x);
+        x = screen_x;
+        position_adjusted = EINA_TRUE;
+    }
+    // Clamp X position: Ensure right edge is not off-screen right
+    // This implements "move it to the max-resolution value minus the size of the window application"
+    if (x + win_w > screen_x + screen_w) {
+        int new_x = screen_x + screen_w - win_w;
+        if (ad->debug) fprintf(stderr, "DEBUG: Adjusting window X from %d to %d (right clamp)\n", x, new_x);
+        x = new_x;
+        position_adjusted = EINA_TRUE;
+    }
+    // Re-check left clamp in case window is wider than screen
+    if (x < screen_x) {
+        if (ad->debug) fprintf(stderr, "DEBUG: Re-adjusting window X from %d to %d (left clamp after right)\n", x, screen_x);
+        x = screen_x;
+        position_adjusted = EINA_TRUE;
+    }
+
+    // Clamp Y position: Ensure top edge is not off-screen top
+    if (y < screen_y) {
+        if (ad->debug) fprintf(stderr, "DEBUG: Adjusting window Y from %d to %d (top clamp)\n", y, screen_y);
+        y = screen_y;
+        position_adjusted = EINA_TRUE;
+    }
+    // Clamp Y position: Ensure bottom edge is not off-screen bottom
+    // This implements "move it to the max-resolution value minus the size of the window application"
+    if (y + win_h > screen_y + screen_h) {
+        int new_y = screen_y + screen_h - win_h;
+        if (ad->debug) fprintf(stderr, "DEBUG: Adjusting window Y from %d to %d (bottom clamp)\n", y, new_y);
+        y = new_y;
+        position_adjusted = EINA_TRUE;
+    }
+    // Re-check top clamp in case window is taller than screen
+    if (y < screen_y) {
+        if (ad->debug) fprintf(stderr, "DEBUG: Re-adjusting window Y from %d to %d (top clamp after bottom)\n", y, screen_y);
+        y = screen_y;
+        position_adjusted = EINA_TRUE;
+    }
+
+    // Update app data with potentially adjusted position
+    ad->win_x = x;
+    ad->win_y = y;
+
+    // Move the window to the loaded/adjusted position
+    evas_object_move(ad->win, ad->win_x, ad->win_y);
+
+    // Save the config immediately if position was adjusted
+    if (position_adjusted) {
+        if (ad->debug) fprintf(stderr, "DEBUG: Window position adjusted to (%d, %d). Saving config.\n", ad->win_x, ad->win_y);
+        _config_save(ad);
+    }
+
     evas_object_show(ad->layout);
     evas_object_show(ad->win);
 
