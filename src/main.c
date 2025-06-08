@@ -343,8 +343,9 @@ _timer_cb(void *data)
             break;
         case CLOCK_MODE_SWATCH:
             _get_swatch_time(rawtime, time_str, sizeof(time_str));
-            snprintf(date_str, sizeof(date_str), "Biel Mean Time"); // Or clear it: ""
-            edje_object_part_text_set(elm_layout_edje_get(ad->layout), "utc_indicator_text", "SWATCH");
+            // snprintf(date_str, sizeof(date_str), "Biel Mean Time"); // Or clear it: ""
+            strftime(date_str, sizeof(date_str), "%A, %B %d, %Y", timeinfo);
+            edje_object_part_text_set(elm_layout_edje_get(ad->layout), "utc_indicator_text", "Internet Time");
             break;
         default:
             // Should not happen, fall back to local
