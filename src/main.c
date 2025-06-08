@@ -56,12 +56,17 @@ typedef struct _App_Data {
     Eina_Bool show_date;
     Eina_Bool utc_mode; // Added: Flag to track current UTC display mode
 
-    /* Dragging state */
+    /* Dragging state for window movement */
     Eina_Bool dragging;
     int drag_start_x;
     int drag_start_y;
     int win_start_x;
     int win_start_y;
+
+    /* Click/Drag detection for Edje signals */
+    Eina_Bool click_suppress; // New: Flag to suppress click actions if a drag occurred
+    Evas_Coord mouse_down_x;  // New: X coordinate of mouse down
+    Evas_Coord mouse_down_y;  // New: Y coordinate of mouse down
 } App_Data;
 
 /* Function prototypes */
@@ -72,6 +77,11 @@ static void _config_init(App_Data *ad);
 static void _config_shutdown(App_Data *ad);
 static Eet_Data_Descriptor *_config_descriptor_new(void);
 static void _utc_toggle_cb(void *data, Evas_Object *obj, const char *emission, const char *source);
+static void _date_click_cb(void *data, Evas_Object *obj, const char *emission, const char *source);
+static void _mouse_down_cb(void *data, Evas *e, Evas_Object *obj, void *event_info);
+static void _mouse_up_cb(void *data, Evas *e, Evas_Object *obj, void *event_info);
+static void _mouse_move_cb(void *data, Evas *e, Evas_Object *obj, void *event_info);
+
 
 /**
  * @brief Creates EET data descriptor for configuration
@@ -195,7 +205,7 @@ _config_save(App_Data *ad)
  * @brief Close button callback
  */
 static void
-_close_cb(void *data, Evas_Object *obj EINA_UNUSED,
+_close_cb(void *data EINA_UNUSED, Evas_Object *obj EINA_UNUSED,
           const char *emission EINA_UNUSED, const char *source EINA_UNUSED)
 {
     ecore_main_loop_quit();
@@ -209,6 +219,8 @@ _utc_toggle_cb(void *data, Evas_Object *obj EINA_UNUSED,
                const char *emission EINA_UNUSED, const char *source EINA_UNUSED)
 {
     App_Data *ad = data;
+    if (ad->click_suppress) return; // Suppress if a drag was detected
+
     ad->utc_mode = !ad->utc_mode;
     _config_save(ad); // Save the new UTC mode preference
     _timer_cb(ad); // Immediately update the display
@@ -222,6 +234,7 @@ _date_click_cb(void *data, Evas_Object *obj EINA_UNUSED,
                const char *emission EINA_UNUSED, const char *source EINA_UNUSED)
 {
     App_Data *ad = data;
+    if (ad->click_suppress) return; // Suppress if a drag was detected
 
     ad->show_date = !ad->show_date;
 
@@ -294,7 +307,7 @@ _win_del_cb(void *data, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUS
 }
 
 /**
- * @brief Mouse down callback - starts dragging
+ * @brief Mouse down callback - starts dragging or prepares for click detection
  */
 static void
 _mouse_down_cb(void *data, Evas *e EINA_UNUSED,
@@ -305,11 +318,15 @@ _mouse_down_cb(void *data, Evas *e EINA_UNUSED,
 
     if (ev->button != 1) return;
 
+    // Record initial mouse position for click/drag detection
+    ad->mouse_down_x = ev->canvas.x;
+    ad->mouse_down_y = ev->canvas.y;
+    ad->click_suppress = EINA_FALSE; // Reset suppression flag for new click/drag
+
     Ecore_X_Window xwin = elm_win_xwindow_get(ad->win);
     if (!xwin) return;
 
-    ad->dragging = EINA_TRUE;
-
+    ad->dragging = EINA_TRUE; // Assume dragging for window movement initially
     Ecore_X_Window root = ecore_x_window_root_get(xwin);
     ecore_x_pointer_xy_get(root, &ad->drag_start_x, &ad->drag_start_y);
     evas_object_geometry_get(ad->win, &ad->win_start_x, &ad->win_start_y, NULL, NULL);
@@ -317,7 +334,7 @@ _mouse_down_cb(void *data, Evas *e EINA_UNUSED,
 }
 
 /**
- * @brief Mouse up callback - ends dragging (UTC toggle moved to EDC signal)
+ * @brief Mouse up callback - ends dragging and allows click if no drag occurred
  */
 static void
 _mouse_up_cb(void *data, Evas *e EINA_UNUSED,
@@ -328,27 +345,16 @@ _mouse_up_cb(void *data, Evas *e EINA_UNUSED,
 
     if (ev->button != 1) return;
 
-    if (ad->dragging) {
+    if (ad->dragging) { // This 'dragging' refers to the window movement state
         ecore_x_pointer_ungrab();
-        ad->dragging = EINA_FALSE;
-
-        Ecore_X_Window xwin = elm_win_xwindow_get(ad->win);
-        if (xwin) {
-            int x, y;
-            Ecore_X_Window root = ecore_x_window_root_get(xwin);
-            ecore_x_pointer_xy_get(root, &x, &y);
-
-            int final_x = ad->win_start_x + (x - ad->drag_start_x);
-            int final_y = ad->win_start_y + (y - ad->drag_start_y);
-
-            evas_object_move(ad->win, final_x, final_y);
-        }
+        ad->dragging = EINA_FALSE; // Reset window dragging state
     }
-    // UTC toggle logic removed from here, now handled by _utc_toggle_cb via EDC signal
+    // The click_suppress flag is NOT reset here. It remains set if a drag was detected,
+    // preventing subsequent Edje click signals from firing. It will be reset on the next MOUSE_DOWN.
 }
 
 /**
- * @brief Mouse move callback - handles dragging
+ * @brief Mouse move callback - handles dragging and updates click suppression
  */
 static void
 _mouse_move_cb(void *data, Evas *e EINA_UNUSED,
@@ -357,7 +363,23 @@ _mouse_move_cb(void *data, Evas *e EINA_UNUSED,
     App_Data *ad = data;
     Evas_Event_Mouse_Move *ev = event_info;
 
-    if (!ad->dragging || ev->buttons != 1) return;
+    if (ev->buttons != 1) return; // Only handle left button moves
+
+    // Check for drag threshold to suppress clicks
+    if (!ad->click_suppress) { // Only check if not already suppressed
+        Evas_Coord dx = ev->cur.canvas.x - ad->mouse_down_x;
+        Evas_Coord dy = ev->cur.canvas.y - ad->mouse_down_y;
+        Evas_Coord dist_sq = (dx * dx) + (dy * dy);
+        Evas_Coord finger_w, finger_h;
+        elm_coords_finger_size_adjust(1, &finger_w, 1, &finger_h); // Get adjusted finger size
+        Evas_Coord threshold_sq = (finger_w * finger_w) / 4; // Use a quarter of finger size squared as threshold
+
+        if (dist_sq > threshold_sq) {
+            ad->click_suppress = EINA_TRUE; // A drag has occurred, suppress clicks
+        }
+    }
+
+    if (!ad->dragging) return; // Only proceed with window drag if it was initiated
 
     Ecore_X_Window xwin = elm_win_xwindow_get(ad->win);
     if (!xwin) return;
