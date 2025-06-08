@@ -27,7 +27,7 @@ collections {
                text {
                   text: "00:00"; // Default placeholder text.
                   font: "Sans:style=Bold"; // Bold Sans font.
-                  size: 36; // Font size.
+                  size: 48; // Font size. (Increased from 36)
                   align: 0.5 0.5; // Center alignment within its relative box.
                }
                rel1 {
