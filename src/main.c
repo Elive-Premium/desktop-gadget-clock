@@ -85,13 +85,14 @@ static Config *_config_load(App_Data *ad);
 static void _config_init(App_Data *ad);
 static void _config_shutdown(App_Data *ad);
 static Eet_Data_Descriptor *_config_descriptor_new(void);
-// static void _utc_toggle_cb(void *data, Evas_Object *obj, const char *emission, const char *source); // Removed
 static void _date_click_cb(void *data, Evas_Object *obj, const char *emission, const char *source);
 static void _clock_mode_toggle_cb(void *data, Evas_Object *obj, const char *emission, const char *source);
 static void _mouse_down_cb(void *data, Evas *e, Evas_Object *obj, void *event_info);
 static void _mouse_up_cb(void *data, Evas *e, Evas_Object *obj, void *event_info);
 static void _mouse_move_cb(void *data, Evas *e, Evas_Object *obj, void *event_info);
 static void _get_swatch_time(time_t rawtime, char *time_str, size_t time_str_len);
+static Eina_Bool _minute_timer_cb(void *data);
+static double _get_next_timer_interval(Eina_Bool show_seconds); // Added missing prototype
 
 
 /**
@@ -273,6 +274,26 @@ _clock_mode_toggle_cb(void *data, Evas_Object *obj EINA_UNUSED,
         ad->clock_mode = CLOCK_MODE_LOCAL;
     }
     _config_save(ad);
+
+    // Delete existing timer
+    if (ad->timer) {
+        ecore_timer_del(ad->timer);
+        ad->timer = NULL;
+    }
+
+    // Set up new timer based on the selected mode and original show_seconds preference
+    if (ad->clock_mode == CLOCK_MODE_SWATCH) {
+        ad->timer = ecore_timer_add(TIMER_INTERVAL_SECONDS, _timer_cb, ad);
+    } else { // CLOCK_MODE_LOCAL or CLOCK_MODE_UTC
+        if (ad->show_seconds) {
+            ad->timer = ecore_timer_add(TIMER_INTERVAL_SECONDS, _timer_cb, ad);
+        } else {
+            // Use _minute_timer_cb to align to the next minute, then switch to regular minute updates
+            double interval = _get_next_timer_interval(EINA_FALSE);
+            ad->timer = ecore_timer_add(interval, _minute_timer_cb, ad);
+        }
+    }
+
     _timer_cb(ad); // Immediately update the display
 }
 
@@ -343,8 +364,7 @@ _timer_cb(void *data)
             break;
         case CLOCK_MODE_SWATCH:
             _get_swatch_time(rawtime, time_str, sizeof(time_str));
-            // snprintf(date_str, sizeof(date_str), "Biel Mean Time"); // Or clear it: ""
-            strftime(date_str, sizeof(date_str), "%A, %B %d, %Y", timeinfo);
+            strftime(date_str, sizeof(date_str), "%A, %B %d, %Y", localtime_r(&rawtime, &timeinfo_buf)); // Display local date for Swatch
             edje_object_part_text_set(elm_layout_edje_get(ad->layout), "utc_indicator_text", "Internet Time");
             break;
         default:
@@ -617,12 +637,16 @@ elm_main(int argc, char **argv)
     /* Apply saved date visibility */
     elm_layout_signal_emit(ad->layout, ad->show_date ? "date,show" : "date,hide", "elm");
 
-    /* Set up timer */
-    if (ad->show_seconds) {
+    /* Set up initial timer based on config and arguments */
+    if (ad->clock_mode == CLOCK_MODE_SWATCH) {
         ad->timer = ecore_timer_add(TIMER_INTERVAL_SECONDS, _timer_cb, ad);
     } else {
-        double interval = _get_next_timer_interval(ad->show_seconds);
-        ad->timer = ecore_timer_add(interval, _minute_timer_cb, ad);
+        if (ad->show_seconds) {
+            ad->timer = ecore_timer_add(TIMER_INTERVAL_SECONDS, _timer_cb, ad);
+        } else {
+            double interval = _get_next_timer_interval(ad->show_seconds);
+            ad->timer = ecore_timer_add(interval, _minute_timer_cb, ad);
+        }
     }
 
     /* Show window */
