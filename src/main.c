@@ -21,7 +21,7 @@
 #include <sys/stat.h>
 #include <errno.h>
 
-#define CONFIG_VERSION 3 // Updated version for clock_mode and window position
+// Removed CONFIG_VERSION as migration code is being removed
 #define WINDOW_WIDTH 300
 #define WINDOW_HEIGHT 120
 #define TIMER_INTERVAL_SECONDS 1.0
@@ -40,11 +40,9 @@
  */
 typedef struct _Config {
     Eina_Bool show_date;
-    int version;
-    Eina_Bool utc_mode; // Kept for migration from older configs (version 1)
-    int clock_mode;     // New: 0 for local, 1 for UTC, 2 for Swatch
-    int win_x;          // New: Saved window X position
-    int win_y;          // New: Saved window Y position
+    int clock_mode;     // 0 for local, 1 for UTC, 2 for Swatch
+    int win_x;          // Saved window X position
+    int win_y;          // Saved window Y position
 } Config;
 
 /**
@@ -65,7 +63,7 @@ typedef struct _App_Data {
     Eina_Bool normal_window;
     Eina_Bool show_seconds;
     Eina_Bool show_date;
-    int clock_mode; // New: 0 for local, 1 for UTC, 2 for Swatch
+    int clock_mode; // 0 for local, 1 for UTC, 2 for Swatch
     int win_x;      // Current window X position
     int win_y;      // Current window Y position
 
@@ -95,10 +93,10 @@ static void _utc_indicator_click_cb(void *data, Evas_Object *obj, const char *em
 static void _mouse_down_cb(void *data, Evas *e, Evas_Object *obj, void *event_info);
 static void _mouse_up_cb(void *data, Evas *e, Evas_Object *obj, void *event_info);
 static void _mouse_move_cb(void *data, Evas *e, Evas_Object *obj, void *event_info);
-static void _win_move_cb(void *data, Evas_Object *obj, void *event_info); // New prototype
+static void _win_move_cb(void *data, Evas_Object *obj, void *event_info);
 static void _get_swatch_time(time_t rawtime, char *time_str, size_t time_str_len);
 static Eina_Bool _minute_timer_cb(void *data);
-static double _get_next_timer_interval(Eina_Bool show_seconds); // Added missing prototype
+static double _get_next_timer_interval(Eina_Bool show_seconds);
 
 
 /**
@@ -114,11 +112,9 @@ _config_descriptor_new(void)
     edd = eet_data_descriptor_stream_new(&eddc);
 
     EET_DATA_DESCRIPTOR_ADD_BASIC(edd, Config, "show_date", show_date, EET_T_UCHAR);
-    EET_DATA_DESCRIPTOR_ADD_BASIC(edd, Config, "version", version, EET_T_INT);
-    EET_DATA_DESCRIPTOR_ADD_BASIC(edd, Config, "utc_mode", utc_mode, EET_T_UCHAR); // Kept for migration
-    EET_DATA_DESCRIPTOR_ADD_BASIC(edd, Config, "clock_mode", clock_mode, EET_T_INT); // New clock mode
-    EET_DATA_DESCRIPTOR_ADD_BASIC(edd, Config, "win_x", win_x, EET_T_INT); // New window X position
-    EET_DATA_DESCRIPTOR_ADD_BASIC(edd, Config, "win_y", win_y, EET_T_INT); // New window Y position
+    EET_DATA_DESCRIPTOR_ADD_BASIC(edd, Config, "clock_mode", clock_mode, EET_T_INT);
+    EET_DATA_DESCRIPTOR_ADD_BASIC(edd, Config, "win_x", win_x, EET_T_INT);
+    EET_DATA_DESCRIPTOR_ADD_BASIC(edd, Config, "win_y", win_y, EET_T_INT);
 
     return edd;
 }
@@ -148,38 +144,19 @@ _config_init(App_Data *ad)
 
     ad->config = _config_load(ad);
     if (!ad->config) {
+        // If no config file exists or loading failed, create a new one with defaults
         ad->config = calloc(1, sizeof(Config));
         ad->config->show_date = EINA_TRUE;
-        ad->config->version = CONFIG_VERSION;
         ad->config->clock_mode = CLOCK_MODE_LOCAL; // Default to local time
-        ad->config->utc_mode = EINA_FALSE; // Default for new configs
         ad->config->win_x = 0; // Default position for new configs
         ad->config->win_y = 0;
-        _config_save(ad);
-    } else {
-        // Handle upgrade from older config versions
-        if (ad->config->version < CONFIG_VERSION) {
-            if (ad->config->version == 1) { // Migrating from version 1 to 2
-                if (ad->config->utc_mode) {
-                    ad->config->clock_mode = CLOCK_MODE_UTC;
-                } else {
-                    ad->config->clock_mode = CLOCK_MODE_LOCAL;
-                }
-            }
-            // Migration from version 2 to 3 (or any version before 3)
-            if (ad->config->version < 3) {
-                ad->config->win_x = 0; // Default position for older configs
-                ad->config->win_y = 0;
-            }
-            // Update version to current
-            ad->config->version = CONFIG_VERSION;
-            _config_save(ad); // Save updated config
-        }
+        _config_save(ad); // Save the new default config
     }
 
+    // Load current settings from config into app data
     ad->show_date = ad->config->show_date;
-    ad->clock_mode = ad->config->clock_mode; // Load clock mode from config
-    ad->win_x = ad->config->win_x; // Load window position from config
+    ad->clock_mode = ad->config->clock_mode;
+    ad->win_x = ad->config->win_x;
     ad->win_y = ad->config->win_y;
 }
 
@@ -234,10 +211,9 @@ _config_save(App_Data *ad)
     if (!ad->config) return;
 
     ad->config->show_date = ad->show_date;
-    ad->config->clock_mode = ad->clock_mode; // Save clock mode
-    ad->config->win_x = ad->win_x; // Save window X position
-    ad->config->win_y = ad->win_y; // Save window Y position
-    // ad->config->utc_mode is no longer actively set, but kept for backward compatibility loading
+    ad->config->clock_mode = ad->clock_mode;
+    ad->config->win_x = ad->win_x;
+    ad->config->win_y = ad->win_y;
 
     ef = eet_open(ad->config_file, EET_FILE_MODE_WRITE);
     if (!ef) {
