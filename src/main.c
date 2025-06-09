@@ -516,8 +516,9 @@ _mouse_move_cb(void *data, Evas *e EINA_UNUSED,
     int screen_x, screen_y, screen_w, screen_h;
     elm_win_screen_size_get(ad->win, &screen_x, &screen_y, &screen_w, &screen_h);
 
-    int win_w = WINDOW_WIDTH;
-    int win_h = WINDOW_HEIGHT;
+    // Get actual window dimensions for clamping
+    int win_w, win_h;
+    evas_object_geometry_get(ad->win, NULL, NULL, &win_w, &win_h);
 
     // Clamp X position
     if (new_x < screen_x) {
@@ -711,11 +712,15 @@ elm_main(int argc, char **argv)
 
     /* Show window */
     evas_object_resize(ad->win, WINDOW_WIDTH, WINDOW_HEIGHT);
+    evas_object_show(ad->layout); // Show layout first
+    evas_object_show(ad->win);    // Then show window to allow size negotiation
+
+    // Get actual window dimensions after it's been shown and potentially resized by the system/theme
+    int win_w, win_h;
+    evas_object_geometry_get(ad->win, NULL, NULL, &win_w, &win_h);
 
     // Adjust window position to be within screen limits
     int screen_x, screen_y, screen_w, screen_h;
-    int win_w = WINDOW_WIDTH;
-    int win_h = WINDOW_HEIGHT;
 
     // Get screen geometry (x, y, width, height)
     elm_win_screen_size_get(ad->win, &screen_x, &screen_y, &screen_w, &screen_h);
@@ -778,9 +783,6 @@ elm_main(int argc, char **argv)
         if (ad->debug) fprintf(stderr, "DEBUG: Window position adjusted to (%d, %d). Saving config.\n", ad->win_x, ad->win_y);
         _config_save(ad);
     }
-
-    evas_object_show(ad->layout);
-    evas_object_show(ad->win);
 
     /* Window properties */
     elm_win_prop_focus_skip_set(ad->win, !ad->normal_window);
