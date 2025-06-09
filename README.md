@@ -15,10 +15,8 @@ A beautiful desktop clock built with EFL (Enlightenment Foundation Libraries).
 - Meson build system
 - Ninja
 
-### Compile
+### Compile and Run
 ```bash
-meson setup build
-cd build
-meson compile
-./src/clock-elive --help
+meson setup build && meson compile -C build
+./build/src/clock-gadget --seconds
 ```
