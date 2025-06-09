@@ -505,12 +505,43 @@ _mouse_move_cb(void *data, Evas *e EINA_UNUSED,
     Ecore_X_Window xwin = elm_win_xwindow_get(ad->win);
     if (!xwin) return;
 
-    int x, y;
+    int x_pointer, y_pointer;
     Ecore_X_Window root = ecore_x_window_root_get(xwin);
-    ecore_x_pointer_xy_get(root, &x, &y);
+    ecore_x_pointer_xy_get(root, &x_pointer, &y_pointer);
 
-    int new_x = ad->win_start_x + (x - ad->drag_start_x);
-    int new_y = ad->win_start_y + (y - ad->drag_start_y);
+    int new_x = ad->win_start_x + (x_pointer - ad->drag_start_x);
+    int new_y = ad->win_start_y + (y_pointer - ad->drag_start_y);
+
+    // Apply real-time clamping to new_x and new_y
+    int screen_x, screen_y, screen_w, screen_h;
+    elm_win_screen_size_get(ad->win, &screen_x, &screen_y, &screen_w, &screen_h);
+
+    int win_w = WINDOW_WIDTH;
+    int win_h = WINDOW_HEIGHT;
+
+    // Clamp X position
+    if (new_x < screen_x) {
+        new_x = screen_x;
+    }
+    if (new_x + win_w > screen_x + screen_w) {
+        new_x = screen_x + screen_w - win_w;
+    }
+    // Re-check left clamp in case window is wider than screen
+    if (new_x < screen_x) {
+        new_x = screen_x;
+    }
+
+    // Clamp Y position
+    if (new_y < screen_y) {
+        new_y = screen_y;
+    }
+    if (new_y + win_h > screen_y + screen_h) {
+        new_y = screen_y + screen_h - win_h;
+    }
+    // Re-check top clamp in case window is taller than screen
+    if (new_y < screen_y) {
+        new_y = screen_y;
+    }
 
     ecore_x_window_move(xwin, new_x, new_y);
     evas_object_move(ad->win, new_x, new_y);
