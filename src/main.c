@@ -567,10 +567,10 @@ elm_main(int argc, char **argv)
     App_Data *ad;
     char edj_path[PATH_MAX];
     const char *theme_locations[] = {
+        DATA_DIR "/themes/default.edj",
         "data/default.edj",
         "build/data/default.edj",
         "../data/default.edj",
-        DATA_DIR "/themes/default.edj",
         NULL
     };
     Eina_Bool theme_found = EINA_FALSE;
