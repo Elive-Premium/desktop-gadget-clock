@@ -636,8 +636,10 @@ elm_main(int argc, char **argv)
     elm_win_autodel_set(ad->win, EINA_TRUE);
     elm_win_alpha_set(ad->win, EINA_TRUE);
 
+    // Always set borderless, regardless of normal_window mode
+    elm_win_borderless_set(ad->win, EINA_TRUE);
+
     if (!ad->normal_window) {
-        elm_win_borderless_set(ad->win, EINA_TRUE);
         elm_win_sticky_set(ad->win, EINA_TRUE);
     }
 
