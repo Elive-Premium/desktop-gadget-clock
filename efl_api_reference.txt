@@ -1,9 +1,6 @@
 # EFL (Enlightenment Foundation Libraries) API Function Reference
 #
-# Included: Public API functions from libefl1
-#
-# Usage: Feed this file to AI tools to know the existing API functions available to use for EFL autocompletion and knowledge.
-# Docs: https://www.enlightenment.org/develop/legacy/api/efl
+# This file contains a list of existing EFL API functions.
 #
 # === BEGIN FUNCTION LIST ===
 ecore_animator_add
