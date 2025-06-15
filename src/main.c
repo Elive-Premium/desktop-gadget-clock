@@ -523,20 +523,22 @@ _mouse_move_cb(void *data, Evas *e EINA_UNUSED,
     int new_x = ad->win_start_x + (x_pointer - ad->drag_start_x);
     int new_y = ad->win_start_y + (y_pointer - ad->drag_start_y);
 
-    // Clamp to screen
+    // Clamp to allow dragging window up to 30% outside the screen
     int screen_x, screen_y, screen_w, screen_h;
     elm_win_screen_size_get(ad->win, &screen_x, &screen_y, &screen_w, &screen_h);
 
     int win_w, win_h;
     evas_object_geometry_get(ad->win, NULL, NULL, &win_w, &win_h);
 
-    if (new_x < screen_x) new_x = screen_x;
-    if (new_x + win_w > screen_x + screen_w) new_x = screen_x + screen_w - win_w;
-    if (new_x < screen_x) new_x = screen_x;
+    int min_x = screen_x - (int)(win_w * 0.3);
+    int max_x = screen_x + screen_w - (int)(win_w * 0.7);
+    if (new_x < min_x) new_x = min_x;
+    if (new_x > max_x) new_x = max_x;
 
-    if (new_y < screen_y) new_y = screen_y;
-    if (new_y + win_h > screen_y + screen_h) new_y = screen_y + screen_h - win_h;
-    if (new_y < screen_y) new_y = screen_y;
+    int min_y = screen_y - (int)(win_h * 0.3);
+    int max_y = screen_y + screen_h - (int)(win_h * 0.7);
+    if (new_y < min_y) new_y = min_y;
+    if (new_y > max_y) new_y = max_y;
 
     ecore_x_window_move(xwin, new_x, new_y);
     evas_object_move(ad->win, new_x, new_y);
@@ -723,45 +725,31 @@ elm_main(int argc, char **argv)
     int y = ad->win_y;
     Eina_Bool position_adjusted = EINA_FALSE;
 
-    // Clamp X position: Ensure left edge is not off-screen left
-    if (x < screen_x) {
-        if (ad->debug) fprintf(stderr, "DEBUG: Adjusting window X from %d to %d (left clamp)\n", x, screen_x);
-        x = screen_x;
+    // Allow window to be up to 30% outside the screen horizontally
+    int min_x = screen_x - (int)(win_w * 0.3);
+    int max_x = screen_x + screen_w - (int)(win_w * 0.7);
+    if (x < min_x) {
+        if (ad->debug) fprintf(stderr, "DEBUG: Adjusting window X from %d to %d (left 30%% clamp)\n", x, min_x);
+        x = min_x;
         position_adjusted = EINA_TRUE;
     }
-    // Clamp X position: Ensure right edge is not off-screen right
-    // This implements "move it to the max-resolution value minus the size of the window application"
-    if (x + win_w > screen_x + screen_w) {
-        int new_x = screen_x + screen_w - win_w;
-        if (ad->debug) fprintf(stderr, "DEBUG: Adjusting window X from %d to %d (right clamp)\n", x, new_x);
-        x = new_x;
-        position_adjusted = EINA_TRUE;
-    }
-    // Re-check left clamp in case window is wider than screen
-    if (x < screen_x) {
-        if (ad->debug) fprintf(stderr, "DEBUG: Re-adjusting window X from %d to %d (left clamp after right)\n", x, screen_x);
-        x = screen_x;
+    if (x > max_x) {
+        if (ad->debug) fprintf(stderr, "DEBUG: Adjusting window X from %d to %d (right 30%% clamp)\n", x, max_x);
+        x = max_x;
         position_adjusted = EINA_TRUE;
     }
 
-    // Clamp Y position: Ensure top edge is not off-screen top
-    if (y < screen_y) {
-        if (ad->debug) fprintf(stderr, "DEBUG: Adjusting window Y from %d to %d (top clamp)\n", y, screen_y);
-        y = screen_y;
+    // Allow window to be up to 30% outside the screen vertically
+    int min_y = screen_y - (int)(win_h * 0.3);
+    int max_y = screen_y + screen_h - (int)(win_h * 0.7);
+    if (y < min_y) {
+        if (ad->debug) fprintf(stderr, "DEBUG: Adjusting window Y from %d to %d (top 30%% clamp)\n", y, min_y);
+        y = min_y;
         position_adjusted = EINA_TRUE;
     }
-    // Clamp Y position: Ensure bottom edge is not off-screen bottom
-    // This implements "move it to the max-resolution value minus the size of the window application"
-    if (y + win_h > screen_y + screen_h) {
-        int new_y = screen_y + screen_h - win_h;
-        if (ad->debug) fprintf(stderr, "DEBUG: Adjusting window Y from %d to %d (bottom clamp)\n", y, new_y);
-        y = new_y;
-        position_adjusted = EINA_TRUE;
-    }
-    // Re-check top clamp in case window is taller than screen
-    if (y < screen_y) {
-        if (ad->debug) fprintf(stderr, "DEBUG: Re-adjusting window Y from %d to %d (top clamp after bottom)\n", y, screen_y);
-        y = screen_y;
+    if (y > max_y) {
+        if (ad->debug) fprintf(stderr, "DEBUG: Adjusting window Y from %d to %d (bottom 30%% clamp)\n", y, max_y);
+        y = max_y;
         position_adjusted = EINA_TRUE;
     }
 
