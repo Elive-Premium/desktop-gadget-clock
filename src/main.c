@@ -585,6 +585,53 @@ _minute_timer_cb(void *data)
 }
 
 /**
+ * @brief Clamp window position to fit within screen limits and allowed clamping
+ */
+static void
+_clamp_window_position(App_Data *ad, int win_w, int win_h, int screen_x, int screen_y, int screen_w, int screen_h)
+{
+    int x = ad->win_x;
+    int y = ad->win_y;
+    Eina_Bool position_adjusted = EINA_FALSE;
+
+    // Allow window to be up to 30% outside the screen horizontally
+    int min_x = screen_x - (int)(win_w * 0.3);
+    int max_x = screen_x + screen_w - (int)(win_w * 0.7);
+    if (x < min_x) {
+        if (ad->debug) fprintf(stderr, "DEBUG: Adjusting window X from %d to %d (left 30%% clamp)\n", x, min_x);
+        x = min_x;
+        position_adjusted = EINA_TRUE;
+    }
+    if (x > max_x) {
+        if (ad->debug) fprintf(stderr, "DEBUG: Adjusting window X from %d to %d (right 30%% clamp)\n", x, max_x);
+        x = max_x;
+        position_adjusted = EINA_TRUE;
+    }
+
+    // Allow window to be up to 30% outside the screen vertically
+    int min_y = screen_y - (int)(win_h * 0.3);
+    int max_y = screen_y + screen_h - (int)(win_h * 0.7);
+    if (y < min_y) {
+        if (ad->debug) fprintf(stderr, "DEBUG: Adjusting window Y from %d to %d (top 30%% clamp)\n", y, min_y);
+        y = min_y;
+        position_adjusted = EINA_TRUE;
+    }
+    if (y > max_y) {
+        if (ad->debug) fprintf(stderr, "DEBUG: Adjusting window Y from %d to %d (bottom 30%% clamp)\n", y, max_y);
+        y = max_y;
+        position_adjusted = EINA_TRUE;
+    }
+
+    ad->win_x = x;
+    ad->win_y = y;
+
+    if (position_adjusted) {
+        if (ad->debug) fprintf(stderr, "DEBUG: Window position adjusted to (%d, %d). Saving config.\n", ad->win_x, ad->win_y);
+        _config_save(ad);
+    }
+}
+
+/**
  * @brief Main entry point
  */
 EAPI_MAIN int
@@ -718,56 +765,15 @@ elm_main(int argc, char **argv)
     int win_w, win_h;
     evas_object_geometry_get(ad->win, NULL, NULL, &win_w, &win_h);
 
-    // Adjust window position to be within screen limits
-    int screen_x, screen_y, screen_w, screen_h;
-
     // Get screen geometry (x, y, width, height)
+    int screen_x, screen_y, screen_w, screen_h;
     elm_win_screen_size_get(ad->win, &screen_x, &screen_y, &screen_w, &screen_h);
 
-    int x = ad->win_x;
-    int y = ad->win_y;
-    Eina_Bool position_adjusted = EINA_FALSE;
-
-    // Allow window to be up to 30% outside the screen horizontally
-    int min_x = screen_x - (int)(win_w * 0.3);
-    int max_x = screen_x + screen_w - (int)(win_w * 0.7);
-    if (x < min_x) {
-        if (ad->debug) fprintf(stderr, "DEBUG: Adjusting window X from %d to %d (left 30%% clamp)\n", x, min_x);
-        x = min_x;
-        position_adjusted = EINA_TRUE;
-    }
-    if (x > max_x) {
-        if (ad->debug) fprintf(stderr, "DEBUG: Adjusting window X from %d to %d (right 30%% clamp)\n", x, max_x);
-        x = max_x;
-        position_adjusted = EINA_TRUE;
-    }
-
-    // Allow window to be up to 30% outside the screen vertically
-    int min_y = screen_y - (int)(win_h * 0.3);
-    int max_y = screen_y + screen_h - (int)(win_h * 0.7);
-    if (y < min_y) {
-        if (ad->debug) fprintf(stderr, "DEBUG: Adjusting window Y from %d to %d (top 30%% clamp)\n", y, min_y);
-        y = min_y;
-        position_adjusted = EINA_TRUE;
-    }
-    if (y > max_y) {
-        if (ad->debug) fprintf(stderr, "DEBUG: Adjusting window Y from %d to %d (bottom 30%% clamp)\n", y, max_y);
-        y = max_y;
-        position_adjusted = EINA_TRUE;
-    }
-
-    // Update app data with potentially adjusted position
-    ad->win_x = x;
-    ad->win_y = y;
+    // Clamp window position to fit on screen and allowed clamping
+    _clamp_window_position(ad, win_w, win_h, screen_x, screen_y, screen_w, screen_h);
 
     // Move the window to the loaded/adjusted position
     evas_object_move(ad->win, ad->win_x, ad->win_y);
-
-    // Save the config immediately if position was adjusted
-    if (position_adjusted) {
-        if (ad->debug) fprintf(stderr, "DEBUG: Window position adjusted to (%d, %d). Saving config.\n", ad->win_x, ad->win_y);
-        _config_save(ad);
-    }
 
     /* Window properties */
     elm_win_prop_focus_skip_set(ad->win, !ad->normal_window);
