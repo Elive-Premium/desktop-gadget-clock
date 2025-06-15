@@ -277,12 +277,12 @@ collections {
          }
 
          // Program to handle mouse leaving the close button itself.
-         // Resets the close button's appearance to its "visible" state.
+         // Resets the close button's appearance to its "visible" state with a fade-out.
          program { name: "close_mouse_out";
             signal: "mouse,out"; // Triggered when the mouse leaves.
             source: "close_button"; // The part that emits the signal.
             action: STATE_SET "visible" 0.0; // Sets the close_button back to its "visible" state (semi-transparent red).
-            transition: LINEAR 0.1; // Quick linear transition.
+            transition: SINUSOIDAL 0.2 CURRENT; // Fade-out transition of half a second.
             target: "close_button"; // Apply state change to close_button.
             target: "close_x"; // Also change the X color
          }
