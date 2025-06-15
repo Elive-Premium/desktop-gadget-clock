@@ -443,15 +443,17 @@ _mouse_down_cb(void *data, Evas *e EINA_UNUSED,
     ad->mouse_down_x = ev->canvas.x;
     ad->mouse_down_y = ev->canvas.y;
     ad->click_suppress = EINA_FALSE; // Reset suppression flag for new click/drag
+    ad->dragging = EINA_FALSE; // Not dragging yet
 
+    // Save window position for potential drag
+    evas_object_geometry_get(ad->win, &ad->win_start_x, &ad->win_start_y, NULL, NULL);
+
+    // Save pointer position for potential drag
     Ecore_X_Window xwin = elm_win_xwindow_get(ad->win);
     if (!xwin) return;
-
-    ad->dragging = EINA_TRUE; // Assume dragging for window movement initially
     Ecore_X_Window root = ecore_x_window_root_get(xwin);
     ecore_x_pointer_xy_get(root, &ad->drag_start_x, &ad->drag_start_y);
-    evas_object_geometry_get(ad->win, &ad->win_start_x, &ad->win_start_y, NULL, NULL);
-    ecore_x_pointer_grab(xwin);
+    // Do not grab pointer yet; only grab if drag threshold is exceeded
 }
 
 /**
@@ -466,12 +468,15 @@ _mouse_up_cb(void *data, Evas *e EINA_UNUSED,
 
     if (ev->button != 1) return;
 
-    if (ad->dragging) { // This 'dragging' refers to the window movement state
+    if (ad->dragging) {
         ecore_x_pointer_ungrab();
-        ad->dragging = EINA_FALSE; // Reset window dragging state
+        ad->dragging = EINA_FALSE;
+        // click_suppress remains set, so click is not allowed after drag
+    } else {
+        // If not dragging, allow click (click_suppress should be false)
+        ad->click_suppress = EINA_FALSE;
     }
-    // The click_suppress flag is NOT reset here. It remains set if a drag was detected,
-    // preventing subsequent Edje click signals from firing. It will be reset on the next MOUSE_DOWN.
+    // click_suppress will be reset on next mouse down
 }
 
 /**
@@ -486,22 +491,28 @@ _mouse_move_cb(void *data, Evas *e EINA_UNUSED,
 
     if (ev->buttons != 1) return; // Only handle left button moves
 
-    // Check for drag threshold to suppress clicks
-    if (!ad->click_suppress) { // Only check if not already suppressed
-        Evas_Coord dx = ev->cur.canvas.x - ad->mouse_down_x;
-        Evas_Coord dy = ev->cur.canvas.y - ad->mouse_down_y;
-        Evas_Coord dist_sq = (dx * dx) + (dy * dy);
-        Evas_Coord finger_w, finger_h;
-        elm_coords_finger_size_adjust(1, &finger_w, 1, &finger_h); // Get adjusted finger size
-        Evas_Coord threshold_sq = (finger_w * finger_w) / 4; // Use a quarter of finger size squared as threshold
+    // Calculate drag distance from initial mouse down
+    int dx = ev->cur.canvas.x - ad->mouse_down_x;
+    int dy = ev->cur.canvas.y - ad->mouse_down_y;
+    int dist_sq = dx * dx + dy * dy;
+    const int drag_threshold = 5; // pixels
+    const int drag_threshold_sq = drag_threshold * drag_threshold;
 
-        if (dist_sq > threshold_sq) {
-            ad->click_suppress = EINA_TRUE; // A drag has occurred, suppress clicks
+    if (!ad->dragging) {
+        // Only start dragging if moved more than threshold
+        if (dist_sq > drag_threshold_sq) {
+            ad->dragging = EINA_TRUE;
+            ad->click_suppress = EINA_TRUE; // Suppress click if dragging
+            // Grab pointer now
+            Ecore_X_Window xwin = elm_win_xwindow_get(ad->win);
+            if (xwin) ecore_x_pointer_grab(xwin);
+        } else {
+            // Not enough movement, do not drag, do not suppress click
+            return;
         }
     }
 
-    if (!ad->dragging) return; // Only proceed with window drag if it was initiated
-
+    // If dragging, move the window
     Ecore_X_Window xwin = elm_win_xwindow_get(ad->win);
     if (!xwin) return;
 
@@ -512,42 +523,20 @@ _mouse_move_cb(void *data, Evas *e EINA_UNUSED,
     int new_x = ad->win_start_x + (x_pointer - ad->drag_start_x);
     int new_y = ad->win_start_y + (y_pointer - ad->drag_start_y);
 
-    // Apply real-time clamping to new_x and new_y
+    // Clamp to screen
     int screen_x, screen_y, screen_w, screen_h;
     elm_win_screen_size_get(ad->win, &screen_x, &screen_y, &screen_w, &screen_h);
 
-    // Get actual window dimensions for clamping
     int win_w, win_h;
     evas_object_geometry_get(ad->win, NULL, NULL, &win_w, &win_h);
 
-    // Clamp X position
-    if (new_x < screen_x) {
-        new_x = screen_x;
-    }
-    if (new_x + win_w > screen_x + screen_w) {
-        new_x = screen_x + screen_w - win_w;
-    }
-    // Re-check left clamp in case window is wider than screen
-    if (new_x < screen_x) {
-        new_x = screen_x;
-    }
+    if (new_x < screen_x) new_x = screen_x;
+    if (new_x + win_w > screen_x + screen_w) new_x = screen_x + screen_w - win_w;
+    if (new_x < screen_x) new_x = screen_x;
 
-    // Clamp Y position
-    if (new_y < screen_y) {
-        new_y = screen_y;
-    }
-    if (new_y + win_h > screen_y + screen_h) {
-        new_y = screen_y + screen_h - win_h;
-    }
-    // Re-check top clamp in case window is taller than screen
-    if (new_y < screen_y) {
-        new_y = screen_y;
-    }
-
-    // If the window is actually moved, suppress click
-    if (ad->win_start_x != new_x || ad->win_start_y != new_y) {
-        ad->click_suppress = EINA_TRUE;
-    }
+    if (new_y < screen_y) new_y = screen_y;
+    if (new_y + win_h > screen_y + screen_h) new_y = screen_y + screen_h - win_h;
+    if (new_y < screen_y) new_y = screen_y;
 
     ecore_x_window_move(xwin, new_x, new_y);
     evas_object_move(ad->win, new_x, new_y);
