@@ -10,6 +10,8 @@ collections {
          part { name: "bg";
             type: RECT;
             description { state: "default" 0.0;
+               min: 300 120; // Minimum size for the clock widget
+               max: 600 300; // Maximum size (optional, can be adjusted)
                color: 20 20 20 128;  // Half transparent, providing a subtle background.
                rel1.relative: 0.0 0.0;
                rel2.relative: 1.0 1.0;
@@ -264,12 +266,12 @@ collections {
          }
 
          // Program to handle mouse entering the close button itself.
-         // Changes the close button's appearance to its "hover" state.
+         // Changes the close button's appearance to its "hover" state with a fade transition.
          program { name: "close_mouse_in";
             signal: "mouse,in"; // Triggered when the mouse enters.
             source: "close_button"; // The part that emits the signal.
             action: STATE_SET "hover" 0.0; // Sets the close_button to its "hover" state (brighter red).
-            transition: LINEAR 0.1; // Quick linear transition.
+            transition: SINUSOIDAL 0.5 CURRENT; // Fade transition of half a second.
             target: "close_button"; // Apply state change to close_button.
             target: "close_x"; // Also change the X color
          }

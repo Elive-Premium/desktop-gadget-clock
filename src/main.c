@@ -22,8 +22,6 @@
 #include <errno.h>
 
 // Removed CONFIG_VERSION as migration code is being removed
-#define WINDOW_WIDTH 300
-#define WINDOW_HEIGHT 120
 #define TIMER_INTERVAL_SECONDS 1.0
 #define TIMER_INTERVAL_MINUTES 60.0
 
@@ -707,7 +705,12 @@ elm_main(int argc, char **argv)
     }
 
     /* Show window */
-    evas_object_resize(ad->win, WINDOW_WIDTH, WINDOW_HEIGHT);
+    // Get minimum size from theme/layout
+    Evas_Coord min_w = 0, min_h = 0;
+    evas_object_size_hint_min_get(ad->layout, &min_w, &min_h);
+    if (min_w < 1) min_w = 300;
+    if (min_h < 1) min_h = 120;
+    evas_object_resize(ad->win, min_w, min_h);
     evas_object_show(ad->layout); // Show layout first
     evas_object_show(ad->win);    // Then show window to allow size negotiation
 
