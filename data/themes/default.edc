@@ -12,9 +12,13 @@ collections {
             description { state: "default" 0.0;
                min: 300 120; // Minimum size for the clock widget
                max: 600 300; // Maximum size (optional, can be adjusted)
-               color: 20 20 20 128;  // Half transparent, providing a subtle background.
+               color: 20 20 20 0;  // Fully transparent by default.
                rel1.relative: 0.0 0.0;
                rel2.relative: 1.0 1.0;
+            }
+            description { state: "hover" 0.0;
+               inherit: "default" 0.0;
+               color: 20 20 20 128;  // Fade to semi-transparent on hover.
             }
          }
 
@@ -223,16 +227,9 @@ collections {
             action: STATE_SET "hover" 0.0; // Sets the target parts to their "hover" state.
             transition: DECELERATE 0.3; // Smooth transition over 0.3 seconds.
             target: "time_text"; // Apply state change to time_text.
+            target: "bg"; // Fade in the background on hover.
             // target: "date_text"; // REMOVED: Date visibility is controlled by C code
             after: "show_close"; // After this program finishes, execute "show_close".
-         }
-
-         // Program to make the close button and its 'X' symbol visible.
-         program { name: "show_close";
-            action: STATE_SET "visible" 0.0; // Sets the target parts to their "visible" state.
-            transition: DECELERATE 0.3; // Smooth transition.
-            target: "close_button"; // Apply state change to close_button.
-            target: "close_x"; // Apply state change to close_x.
          }
 
          // Program to handle mouse leaving the main clock area.
@@ -243,8 +240,17 @@ collections {
             action: STATE_SET "default" 0.0; // Sets the target parts back to their "default" state.
             transition: DECELERATE 0.3; // Smooth transition.
             target: "time_text"; // Apply state change to time_text.
+            target: "bg"; // Fade out the background on mouse out.
             // target: "date_text"; // REMOVED: Date visibility is controlled by C code
             after: "hide_close"; // After this program finishes, execute "hide_close".
+         }
+
+         // Program to make the close button and its 'X' symbol visible.
+         program { name: "show_close";
+            action: STATE_SET "visible" 0.0; // Sets the target parts to their "visible" state.
+            transition: DECELERATE 0.3; // Smooth transition.
+            target: "close_button"; // Apply state change to close_button.
+            target: "close_x"; // Apply state change to close_x.
          }
 
          // Program to hide the close button and its 'X' symbol.
