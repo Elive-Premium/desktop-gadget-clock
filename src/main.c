@@ -544,6 +544,11 @@ _mouse_move_cb(void *data, Evas *e EINA_UNUSED,
         new_y = screen_y;
     }
 
+    // If the window is actually moved, suppress click
+    if (ad->win_start_x != new_x || ad->win_start_y != new_y) {
+        ad->click_suppress = EINA_TRUE;
+    }
+
     ecore_x_window_move(xwin, new_x, new_y);
     evas_object_move(ad->win, new_x, new_y);
 }
