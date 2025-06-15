@@ -2,6 +2,9 @@
 // using the Enlightenment Foundation Libraries (EFL) EDC (Evas Design Code) format.
 // It describes various UI elements (parts) and how they react to user input (programs).
 collections {
+    fonts {
+        font: "lcd.ttf" "LCD";
+    }
    // Main group for the clock widget. All parts and programs related to the clock
    // are defined within this group.
    group { name: "clock/main";
@@ -27,10 +30,10 @@ collections {
                color: 255 255 255 255; // White text.
                color3: 0 0 0 128; // Shadow color (black, half transparent).
                text {
-                  text: "00:00"; // Default placeholder text.
-                  font: "Sans:style=Bold"; // Bold Sans font.
-                  size: 48; // Font size. (Increased from 36)
-                  align: 0.5 0.5; // Center alignment within its relative box.
+                   text: "00:00"; // Default placeholder text.
+                   font: "LCD"; // Use the provided LCD font for digits.
+                   size: 144; // Font size. (3x bigger than 48)
+                   align: 0.5 0.5; // Center alignment within its relative box.
                }
                rel1 {
                   relative: 0.1 0.2;
